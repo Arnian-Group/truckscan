@@ -2,12 +2,12 @@ import uuid
 import os
 import shutil
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
 from ..database import get_db
 from ..models import Trailer, Section, SectionStatus, User
 from ..auth import get_current_user
-from ..schemas import SectionOut
+from ..schemas import SectionOut, SectionDoneBody
 from ..audit import log_action
 from ..config import settings
 
@@ -110,7 +110,7 @@ async def upload_photos(
 def mark_section_done(
     trailer_id: uuid.UUID,
     section_number: int,
-    notes: str = Form(None),
+    body: SectionDoneBody = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -123,8 +123,8 @@ def mark_section_done(
 
     section.status = SectionStatus.done
     section.updated_by = current_user.id
-    if notes is not None:
-        section.notes = notes
+    if body and body.notes is not None:
+        section.notes = body.notes
     db.commit()
     db.refresh(section)
 

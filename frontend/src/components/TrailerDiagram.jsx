@@ -26,7 +26,7 @@ const TOTAL_H = PAD + 2 * ROW_H + GAP + PAD + 24
 function sectionColor(section, selected) {
   if (selected) return { fill: '#ffffff22', stroke: '#ffffff', glow: true }
   if (section.status === 'done') return { fill: '#16a34a33', stroke: '#22C55E', glow: false }
-  if (section.photos?.length > 0) return { fill: '#F5A62322', stroke: '#F5A623', glow: false }
+  if (section.photos?.length > 0) return { fill: '#F5A62330', stroke: '#F5A623', glow: false, pulse: true, inProgress: true }
   return { fill: '#F5A62318', stroke: '#F5A623', glow: false, pulse: true }
 }
 
@@ -163,16 +163,30 @@ export default function TrailerDiagram({ sections, selectedSection, onSelect }) 
                   />
                 </g>
               ) : sec.photos?.length > 0 ? (
-                <text
-                  x={x + w / 2}
-                  y={y + 50}
-                  textAnchor="middle"
-                  fill="#F5A623"
-                  fontSize="9"
-                  fontFamily="IBM Plex Mono"
-                >
-                  {sec.photos.length} foto{sec.photos.length !== 1 ? 's' : ''}
-                </text>
+                <g>
+                  <text
+                    x={x + w / 2}
+                    y={y + 44}
+                    textAnchor="middle"
+                    fill="#F5A623"
+                    fontSize="8"
+                    fontFamily="IBM Plex Mono"
+                  >
+                    {sec.photos.length} foto{sec.photos.length !== 1 ? 's' : ''}
+                  </text>
+                  <text
+                    x={x + w / 2}
+                    y={y + 57}
+                    textAnchor="middle"
+                    fill="#F5A623"
+                    fontSize="7.5"
+                    fontFamily="IBM Plex Sans"
+                    fontWeight="700"
+                    opacity="0.9"
+                  >
+                    MARCAR LISTA
+                  </text>
+                </g>
               ) : (
                 <text
                   x={x + w / 2}

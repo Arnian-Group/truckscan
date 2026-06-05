@@ -50,6 +50,11 @@ class SectionOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# Section
+class SectionDoneBody(BaseModel):
+    notes: Optional[str] = None
+
+
 # Trailer
 class TrailerCreate(BaseModel):
     plate: Optional[str] = None

@@ -121,13 +121,6 @@ def complete_trailer(
     if trailer.status == TrailerStatus.completed:
         raise HTTPException(status_code=400, detail="Trailer already completed")
 
-    undone = [s for s in trailer.sections if s.status != SectionStatus.done]
-    if undone:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Sections {[s.number for s in undone]} are not yet done",
-        )
-
     trailer.status = TrailerStatus.completed
     db.commit()
     db.refresh(trailer)

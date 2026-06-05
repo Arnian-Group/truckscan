@@ -45,11 +45,9 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
     if (!photos.length) return alert('Add at least one photo first')
     setMarking(true)
     try {
-      const form = new FormData()
-      if (notes) form.append('notes', notes)
       const { data } = await api.patch(
         `/trailers/${trailerId}/sections/${sectionNumber}/done`,
-        form
+        { notes: notes || null }
       )
       setDone(true)
       onUpdate(data)

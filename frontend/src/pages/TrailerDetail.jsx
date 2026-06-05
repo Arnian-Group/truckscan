@@ -54,7 +54,7 @@ export default function TrailerDetail() {
 
   const doneCount = trailer?.sections?.filter((s) => s.status === 'done').length || 0
   const totalCount = trailer?.sections?.length || 8
-  const allDone = doneCount === totalCount
+  const pendingCount = totalCount - doneCount
   const isCompleted = trailer?.status === 'completed'
 
   const selectedSection = selected !== null
@@ -108,7 +108,7 @@ export default function TrailerDetail() {
 
           {/* Progress */}
           <div className="text-right">
-            <span className="font-mono font-bold text-2xl" style={{ color: allDone ? '#22C55E' : '#F5A623' }}>
+            <span className="font-mono font-bold text-2xl" style={{ color: pendingCount === 0 ? '#22C55E' : '#F5A623' }}>
               {doneCount}
             </span>
             <span className="font-mono text-white/30 text-sm">/{totalCount}</span>
@@ -120,7 +120,7 @@ export default function TrailerDetail() {
         <div className="h-1.5 bg-white/10">
           <motion.div
             className="h-full"
-            style={{ backgroundColor: allDone ? '#22C55E' : '#F5A623' }}
+            style={{ backgroundColor: pendingCount === 0 ? '#22C55E' : '#F5A623' }}
             initial={{ width: 0 }}
             animate={{ width: `${(doneCount / totalCount) * 100}%` }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
@@ -176,19 +176,24 @@ export default function TrailerDetail() {
       {/* Complete button */}
       {!isCompleted && (
         <div className="fixed bottom-16 left-0 right-0 p-4 bg-[#0f1117]/90 backdrop-blur-sm border-t border-white/10 z-30">
+          {pendingCount > 0 && (
+            <p className="text-center text-white/40 text-xs font-mono mb-2">
+              {pendingCount} sección{pendingCount !== 1 ? 'es' : ''} sin documentar — quedarán vacías
+            </p>
+          )}
           <button
             onClick={handleComplete}
-            disabled={!allDone || completing}
+            disabled={completing}
             className="w-full min-h-[56px] font-bold text-base transition-all flex items-center justify-center gap-2
               bg-[#22C55E] text-white hover:bg-[#16a34a] active:scale-98
-              disabled:bg-white/5 disabled:text-white/20 disabled:cursor-not-allowed"
+              disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {completing ? (
               <Loader size={20} className="animate-spin" />
             ) : (
               <>
                 <CheckCircle size={20} />
-                {allDone ? 'Marcar Trailer como Completado' : `Faltan ${totalCount - doneCount} secciones`}
+                Cerrar Trailer
               </>
             )}
           </button>
@@ -226,6 +231,7 @@ export default function TrailerDetail() {
 
 function SectionRow({ section, onClick, readonly }) {
   const isDoor = section.number === 4 || section.number === 8
+  const inProgress = section.status !== 'done' && section.photos?.length > 0
 
   return (
     <button
@@ -234,7 +240,9 @@ function SectionRow({ section, onClick, readonly }) {
       className={`w-full flex items-center gap-3 p-3 border transition-all text-left
         ${section.status === 'done'
           ? 'border-[#22C55E30] bg-[#22C55E08]'
-          : 'border-white/10 bg-[#161b27] hover:border-[#F5A623]/30'
+          : inProgress
+            ? 'border-[#F5A623] bg-[#F5A62310] hover:bg-[#F5A62318]'
+            : 'border-white/10 bg-[#161b27] hover:border-[#F5A623]/30'
         }
         ${readonly ? 'cursor-default' : 'active:scale-98'}`}
     >
@@ -252,6 +260,11 @@ function SectionRow({ section, onClick, readonly }) {
             Sección {section.number}
             {isDoor && <span className="text-white/40 text-xs ml-1">PUERTA</span>}
           </span>
+          {inProgress && !readonly && (
+            <span className="text-[10px] font-mono font-bold text-[#F5A623] bg-[#F5A62320] px-1.5 py-0.5 border border-[#F5A62340]">
+              RETOMAR
+            </span>
+          )}
         </div>
         {section.notes && (
           <p className="text-xs text-white/40 truncate">{section.notes}</p>
