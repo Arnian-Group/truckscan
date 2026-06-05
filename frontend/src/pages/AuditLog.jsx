@@ -19,6 +19,7 @@ export default function AuditLog() {
   const [items, setItems] = useState([])
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [userFilter, setUserFilter] = useState('')
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -30,6 +31,7 @@ export default function AuditLog() {
 
   async function load() {
     setLoading(true)
+    setError('')
     try {
       const params = { page, page_size: PAGE_SIZE }
       if (userFilter) params.user_id = userFilter
@@ -37,7 +39,8 @@ export default function AuditLog() {
       setItems(data.items)
       setTotal(data.total)
     } catch (err) {
-      console.error(err)
+      const detail = err.response?.data?.detail
+      setError(Array.isArray(detail) ? detail.map((e) => e.msg).join(', ') : (detail || err.message || 'Error al cargar'))
     } finally {
       setLoading(false)
     }
@@ -72,6 +75,16 @@ export default function AuditLog() {
         {loading ? (
           <div className="flex justify-center py-16">
             <Loader size={28} className="animate-spin text-[#F5A623]" />
+          </div>
+        ) : error ? (
+          <div className="px-4 py-12 text-center">
+            <p className="text-red-400 font-mono text-sm border border-red-400/30 bg-red-400/10 px-4 py-3 inline-block">
+              Error: {error}
+            </p>
+          </div>
+        ) : items.length === 0 ? (
+          <div className="px-4 py-12 text-center text-white/30 font-mono text-sm">
+            Sin registros aún
           </div>
         ) : (
           <table className="w-full text-sm min-w-[640px]">

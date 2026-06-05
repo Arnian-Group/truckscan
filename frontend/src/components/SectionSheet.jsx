@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Camera, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { X, Camera, CheckCircle, ChevronLeft, ChevronRight, Loader } from 'lucide-react'
 import api from '../lib/api'
 
 const DOOR_SECTIONS = [4, 8]
@@ -19,6 +19,12 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
     ? `Sección ${sectionNumber} — PUERTA / DOOR`
     : `Sección ${sectionNumber}`
 
+  function apiError(err) {
+    const detail = err.response?.data?.detail
+    if (Array.isArray(detail)) return detail.map((e) => e.msg ?? JSON.stringify(e)).join(', ')
+    return detail || err.message || 'Error desconocido'
+  }
+
   async function handleFiles(e) {
     const files = Array.from(e.target.files || [])
     if (!files.length) return
@@ -26,15 +32,15 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
     try {
       const form = new FormData()
       files.forEach((f) => form.append('files', f))
+      // No poner Content-Type a mano — axios lo setea con el boundary correcto
       const { data } = await api.post(
         `/trailers/${trailerId}/sections/${sectionNumber}/photos`,
-        form,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
+        form
       )
       setPhotos(data.photos)
       onUpdate(data)
     } catch (err) {
-      alert(err.response?.data?.detail || 'Upload failed')
+      alert(apiError(err))
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -53,7 +59,7 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
       onUpdate(data)
       setTimeout(onClose, 800)
     } catch (err) {
-      alert(err.response?.data?.detail || 'Failed to mark done')
+      alert(apiError(err))
     } finally {
       setMarking(false)
     }
@@ -97,6 +103,25 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
               <X size={20} />
             </button>
           </div>
+
+          {/* Upload overlay */}
+          <AnimatePresence>
+            {uploading && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-20 bg-[#161b27]/85 flex flex-col items-center justify-center gap-4 rounded-t-2xl"
+              >
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                  className="w-12 h-12 border-2 border-[#F5A623] border-t-transparent rounded-full"
+                />
+                <p className="text-[#F5A623] font-mono font-bold text-sm tracking-wider">SUBIENDO FOTOS...</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Scrollable body */}
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
