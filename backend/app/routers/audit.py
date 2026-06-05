@@ -35,4 +35,4 @@ def list_audit(
         .limit(page_size)
         .all()
     )
-    return {"items": items, "total": total, "page": page, "page_size": page_size}
+    return {"items": [AuditLogOut.model_validate(i) for i in items], "total": total, "page": page, "page_size": page_size}

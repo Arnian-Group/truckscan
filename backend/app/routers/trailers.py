@@ -48,7 +48,7 @@ def list_trailers(
         .all()
     )
     log_action(db, current_user.id, "trailers_listed", "trailer", None)
-    return {"items": items, "total": total, "page": page, "page_size": page_size}
+    return {"items": [TrailerListItem.model_validate(i) for i in items], "total": total, "page": page, "page_size": page_size}
 
 
 @router.post("", response_model=TrailerOut, status_code=201)
