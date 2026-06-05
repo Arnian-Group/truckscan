@@ -10,6 +10,8 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - default
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U truckscan"]
       interval: 5s
@@ -28,11 +30,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    networks:
+      - default
+      - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.truckscan-api.rule=Host(`${DOMAIN}`) && (PathPrefix(`/auth`) || PathPrefix(`/trailers`) || PathPrefix(`/users`) || PathPrefix(`/audit`) || PathPrefix(`/uploads`) || PathPrefix(`/health`))"
+      - "traefik.http.routers.truckscan-api.entrypoints=websecure"
+      - "traefik.http.routers.truckscan-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.truckscan-api.priority=10"
+      - "traefik.http.services.truckscan-api.loadbalancer.server.port=8000"
 
   frontend:
     build:
@@ -42,23 +49,22 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
-
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - backend
-      - frontend
+    networks:
+      - default
+      - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.truckscan-app.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.truckscan-app.entrypoints=websecure"
+      - "traefik.http.routers.truckscan-app.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.truckscan-app.priority=1"
+      - "traefik.http.services.truckscan-app.loadbalancer.server.port=80"
 
 volumes:
   postgres_data:
   uploads_data:
-  caddy_data:
-  caddy_config:
+
+networks:
+  default:
+  dokploy-network:
+    external: true
