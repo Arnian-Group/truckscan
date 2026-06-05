@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(New-Item -ItemType File -Force \"C:\\\\Users\\\\siste\\\\Documents\\\\TruckScan\\\\backend\\\\requirements.txt\")",
+      "Bash(Out-Null)",
+      "Bash(touch C:\\\\Users\\\\siste\\\\Documents\\\\TruckScan\\\\backend\\\\requirements.txt)",
+      "Bash(touch C:\\\\Users\\\\siste\\\\Documents\\\\TruckScan\\\\backend\\\\Dockerfile)",
+      "Bash(touch C:\\\\Users\\\\siste\\\\Documents\\\\TruckScan\\\\docker-compose.yml)",
+      "Bash(touch C:\\\\Users\\\\siste\\\\Documents\\\\TruckScan\\\\Caddyfile)",
+      "Bash(touch C:\\\\Users\\\\siste\\\\Documents\\\\TruckScan\\\\.env.example)",
+      "PowerShell(New-Item *)"
+    ]
+  }
+}

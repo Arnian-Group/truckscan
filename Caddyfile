@@ -1,0 +1,36 @@
+{$DOMAIN:localhost} {
+    # API routes → FastAPI backend
+    handle /auth/* {
+        reverse_proxy backend:8000
+    }
+    handle /trailers/* {
+        reverse_proxy backend:8000
+    }
+    handle /users/* {
+        reverse_proxy backend:8000
+    }
+    handle /audit/* {
+        reverse_proxy backend:8000
+    }
+    handle /uploads/* {
+        reverse_proxy backend:8000
+    }
+    handle /health {
+        reverse_proxy backend:8000
+    }
+
+    # Everything else → React SPA
+    handle {
+        reverse_proxy frontend:80
+    }
+
+    # Security headers
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    encode gzip
+}
