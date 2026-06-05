@@ -32,14 +32,8 @@ services:
         condition: service_healthy
     networks:
       - default
-      - dokploy-network
     labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.truckscan-api.rule=Host(`${DOMAIN}`) && (PathPrefix(`/auth`) || PathPrefix(`/trailers`) || PathPrefix(`/users`) || PathPrefix(`/audit`) || PathPrefix(`/uploads`) || PathPrefix(`/health`))"
-      - "traefik.http.routers.truckscan-api.entrypoints=websecure"
-      - "traefik.http.routers.truckscan-api.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.truckscan-api.priority=10"
-      - "traefik.http.services.truckscan-api.loadbalancer.server.port=8000"
+      - "traefik.enable=false"
 
   frontend:
     build:
@@ -54,11 +48,10 @@ services:
       - dokploy-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.truckscan-app.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.truckscan-app.entrypoints=websecure"
-      - "traefik.http.routers.truckscan-app.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.truckscan-app.priority=1"
-      - "traefik.http.services.truckscan-app.loadbalancer.server.port=80"
+      - "traefik.http.routers.truckscan.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.truckscan.entrypoints=websecure"
+      - "traefik.http.routers.truckscan.tls.certresolver=letsencrypt"
+      - "traefik.http.services.truckscan.loadbalancer.server.port=80"
 
 volumes:
   postgres_data:
