@@ -42,7 +42,7 @@ def list_trailers(
         q = q.filter(Trailer.status == status)
     total = q.count()
     items = (
-        q.order_by(Trailer.created_at.desc())
+        q.order_by(Trailer.updated_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()

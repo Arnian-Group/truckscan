@@ -132,18 +132,14 @@ export default function TrailerDetail() {
           <TrailerDiagram
             sections={trailer.sections}
             selectedSection={selected}
-            onSelect={(num) => {
-              if (!isCompleted) setSelected(selected === num ? null : num)
-            }}
+            onSelect={(num) => setSelected(selected === num ? null : num)}
           />
         </div>
 
         {/* Instruction */}
-        {!isCompleted && (
-          <p className="text-center text-white/30 text-xs font-mono">
-            Toca una sección para documentarla
-          </p>
-        )}
+        <p className="text-center text-white/30 text-xs font-mono">
+          {isCompleted ? 'Toca una sección para ver las fotos' : 'Toca una sección para documentarla'}
+        </p>
 
         {/* Sections list summary */}
         <div className="space-y-2">
@@ -151,7 +147,7 @@ export default function TrailerDetail() {
             <SectionRow
               key={section.number}
               section={section}
-              onClick={() => !isCompleted && setSelected(section.number)}
+              onClick={() => setSelected(section.number)}
               readonly={isCompleted}
             />
           ))}
@@ -236,15 +232,13 @@ function SectionRow({ section, onClick, readonly }) {
   return (
     <button
       onClick={onClick}
-      disabled={readonly}
-      className={`w-full flex items-center gap-3 p-3 border transition-all text-left
+      className={`w-full flex items-center gap-3 p-3 border transition-all text-left active:scale-98
         ${section.status === 'done'
-          ? 'border-[#22C55E30] bg-[#22C55E08]'
+          ? 'border-[#22C55E30] bg-[#22C55E08] hover:border-[#22C55E60]'
           : inProgress
             ? 'border-[#F5A623] bg-[#F5A62310] hover:bg-[#F5A62318]'
             : 'border-white/10 bg-[#161b27] hover:border-[#F5A623]/30'
-        }
-        ${readonly ? 'cursor-default' : 'active:scale-98'}`}
+        }`}
     >
       <div
         className={`w-9 h-9 flex items-center justify-center font-mono font-bold text-sm shrink-0 ${

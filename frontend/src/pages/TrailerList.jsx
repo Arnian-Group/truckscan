@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Truck, X, RefreshCw } from 'lucide-react'
+import { Plus, Truck, X, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react'
 import Layout from '../components/Layout'
 import api from '../lib/api'
+
+const PAGE_SIZE = 20
 
 function StatusBadge({ status }) {
   return (
@@ -22,6 +24,8 @@ function StatusBadge({ status }) {
 function TrailerCard({ trailer, onClick }) {
   const doneCount = trailer.sections?.filter((s) => s.status === 'done').length || 0
   const totalCount = trailer.sections?.length || 8
+  const isCompleted = trailer.status === 'completed'
+  const displayDate = isCompleted ? trailer.updated_at : trailer.created_at
 
   return (
     <motion.button
@@ -50,11 +54,11 @@ function TrailerCard({ trailer, onClick }) {
       <div className="space-y-1">
         <div className="flex justify-between text-xs text-white/40 font-mono">
           <span>{doneCount}/{totalCount} secciones</span>
-          <span>{new Date(trailer.created_at).toLocaleDateString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+          <span>{new Date(displayDate).toLocaleDateString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
         </div>
         <div className="h-1 bg-white/10 w-full">
           <div
-            className="h-full bg-[#F5A623] transition-all"
+            className="h-full transition-all"
             style={{ width: `${(doneCount / totalCount) * 100}%`, backgroundColor: doneCount === totalCount ? '#22C55E' : '#F5A623' }}
           />
         </div>
@@ -158,13 +162,17 @@ export default function TrailerList() {
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
 
-  async function load() {
+  async function load(p = page, filter = statusFilter) {
     setLoading(true)
     try {
-      const params = statusFilter ? { status: statusFilter } : {}
+      const params = { page: p, page_size: PAGE_SIZE }
+      if (filter) params.status = filter
       const { data } = await api.get('/trailers', { params })
       setTrailers(data.items)
+      setTotal(data.total)
     } catch (err) {
       console.error(err)
     } finally {
@@ -172,12 +180,21 @@ export default function TrailerList() {
     }
   }
 
-  useEffect(() => { load() }, [statusFilter])
+  useEffect(() => {
+    setPage(1)
+    load(1, statusFilter)
+  }, [statusFilter])
+
+  useEffect(() => {
+    load(page, statusFilter)
+  }, [page])
 
   function handleCreated(trailer) {
     setShowNew(false)
     navigate(`/trailers/${trailer.id}`)
   }
+
+  const totalPages = Math.ceil(total / PAGE_SIZE)
 
   return (
     <Layout title="TruckScan">
@@ -197,7 +214,7 @@ export default function TrailerList() {
           </button>
         ))}
         <button
-          onClick={load}
+          onClick={() => load(page, statusFilter)}
           className="ml-auto p-1.5 text-white/40 hover:text-white min-h-[36px] min-w-[36px] flex items-center justify-center"
           aria-label="Refresh"
         >
@@ -206,7 +223,7 @@ export default function TrailerList() {
       </div>
 
       {/* List */}
-      <div className="px-4 py-4 space-y-3 pb-24">
+      <div className="px-4 py-4 space-y-3 pb-28">
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-8 h-8 border-2 border-[#F5A623] border-t-transparent rounded-full animate-spin" />
@@ -220,6 +237,32 @@ export default function TrailerList() {
           trailers.map((t) => (
             <TrailerCard key={t.id} trailer={t} onClick={() => navigate(`/trailers/${t.id}`)} />
           ))
+        )}
+
+        {/* Pagination */}
+        {!loading && totalPages > 1 && (
+          <div className="flex items-center justify-between pt-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-mono border border-white/10 disabled:opacity-30 hover:border-[#F5A623] transition-colors min-h-[44px]"
+            >
+              <ChevronLeft size={16} />
+              Anterior
+            </button>
+            <span className="text-xs font-mono text-white/40">
+              {page} / {totalPages}
+              <span className="text-white/20 ml-1">({total})</span>
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-mono border border-white/10 disabled:opacity-30 hover:border-[#F5A623] transition-colors min-h-[44px]"
+            >
+              Siguiente
+              <ChevronRight size={16} />
+            </button>
+          </div>
         )}
       </div>
 
