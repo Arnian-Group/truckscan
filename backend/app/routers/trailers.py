@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from ..database import get_db
 from ..models import Trailer, Section, TrailerStatus, SectionStatus, User
-from ..auth import get_current_user
+from ..auth import get_current_user, require_admin
 from ..schemas import TrailerCreate, TrailerOut, TrailerListItem, PaginatedResponse
 from ..audit import log_action
 
@@ -37,7 +37,7 @@ def list_trailers(
     q = db.query(Trailer).options(
         joinedload(Trailer.creator),
         joinedload(Trailer.sections).joinedload(Section.updater),
-    )
+    ).filter(Trailer.is_deleted == False)
     if status:
         q = q.filter(Trailer.status == status)
     total = q.count()
@@ -92,7 +92,7 @@ def get_trailer(
             joinedload(Trailer.creator),
             joinedload(Trailer.sections).joinedload(Section.updater),
         )
-        .filter(Trailer.id == trailer_id)
+        .filter(Trailer.id == trailer_id, Trailer.is_deleted == False)
         .first()
     )
     if not trailer:
@@ -113,7 +113,7 @@ def complete_trailer(
             joinedload(Trailer.creator),
             joinedload(Trailer.sections).joinedload(Section.updater),
         )
-        .filter(Trailer.id == trailer_id)
+        .filter(Trailer.id == trailer_id, Trailer.is_deleted == False)
         .first()
     )
     if not trailer:
@@ -126,3 +126,23 @@ def complete_trailer(
     db.refresh(trailer)
     log_action(db, current_user.id, "trailer_completed", "trailer", str(trailer_id))
     return trailer
+
+
+@router.delete("/{trailer_id}", status_code=204)
+def delete_trailer(
+    trailer_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    trailer = (
+        db.query(Trailer)
+        .filter(Trailer.id == trailer_id, Trailer.is_deleted == False)
+        .first()
+    )
+    if not trailer:
+        raise HTTPException(status_code=404, detail="Trailer no encontrado")
+
+    trailer.is_deleted = True
+    db.commit()
+    log_action(db, current_user.id, "trailer_deleted", "trailer", str(trailer_id),
+               {"plate": trailer.plate, "reference": trailer.reference})

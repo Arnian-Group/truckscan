@@ -1,19 +1,23 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle, Loader } from 'lucide-react'
+import { CheckCircle, Loader, Trash2 } from 'lucide-react'
 import Layout from '../components/Layout'
 import TrailerDiagram from '../components/TrailerDiagram'
 import SectionSheet from '../components/SectionSheet'
 import api from '../lib/api'
+import { isAdmin } from '../lib/auth'
 
 export default function TrailerDetail() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [trailer, setTrailer] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
   const [completing, setCompleting] = useState(false)
   const [justCompleted, setJustCompleted] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   async function load() {
     try {
@@ -49,6 +53,23 @@ export default function TrailerDetail() {
       alert(err.response?.data?.detail || 'Cannot complete trailer')
     } finally {
       setCompleting(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteConfirm) {
+      setDeleteConfirm(true)
+      setTimeout(() => setDeleteConfirm(false), 4000)
+      return
+    }
+    setDeleting(true)
+    try {
+      await api.delete(`/trailers/${id}`)
+      navigate('/')
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al eliminar')
+      setDeleting(false)
+      setDeleteConfirm(false)
     }
   }
 
@@ -152,6 +173,30 @@ export default function TrailerDetail() {
             />
           ))}
         </div>
+
+        {/* Admin delete */}
+        {isAdmin() && (
+          <div className="pt-2 pb-1">
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className={`w-full min-h-[48px] flex items-center justify-center gap-2 font-mono font-bold text-sm transition-all active:scale-98 border ${
+                deleteConfirm
+                  ? 'bg-red-500/15 border-red-500/60 text-red-400'
+                  : 'bg-transparent border-white/10 text-white/25 hover:border-red-500/40 hover:text-red-400/70'
+              }`}
+            >
+              {deleting ? (
+                <Loader size={16} className="animate-spin" />
+              ) : (
+                <>
+                  <Trash2 size={15} />
+                  {deleteConfirm ? '¿CONFIRMAR ELIMINACIÓN? Toca de nuevo' : 'Eliminar trailer'}
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         {/* Just completed celebration */}
         <AnimatePresence>

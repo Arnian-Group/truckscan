@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from .database import engine, SessionLocal, Base
@@ -41,6 +42,12 @@ def seed_db(db: Session):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    # Add new nullable columns to existing tables without breaking data
+    with engine.connect() as conn:
+        conn.execute(text(
+            "ALTER TABLE trailers ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
+        conn.commit()
     os.makedirs(settings.UPLOADS_DIR, exist_ok=True)
     db = SessionLocal()
     try:

@@ -55,6 +55,8 @@ class Trailer(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
+    is_deleted = Column(Boolean, default=False, server_default='false', nullable=False)
+
     creator = relationship("User", back_populates="trailers")
     sections = relationship("Section", back_populates="trailer", order_by="Section.number")
 
