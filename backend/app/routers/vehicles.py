@@ -362,6 +362,114 @@ def _generate_full_report_pdf(insp: VehicleInspection) -> str:
     else:
         story.append(Paragraph("No damages recorded.", body_style))
 
+    # ── Appendix: Liability Release ───────────────────────────────────────────
+    story.append(PageBreak())
+    story.append(Paragraph("APPENDIX A — LIABILITY RELEASE / DESCARGO DE RESPONSABILIDAD", label_style))
+    story.append(HRFlowable(width="100%", thickness=1, color=amber))
+    story.append(Spacer(1, 0.15*inch))
+
+    # Checklist
+    story.append(Paragraph("DOCUMENTS RECEIVED / DOCUMENTOS RECIBIDOS", label_style))
+    story.append(Spacer(1, 0.05*inch))
+    checklist = insp.checklist or {}
+    doc_labels = {
+        "licencia":     "Copia de Licencia / Driver's License Copy",
+        "circulacion":  "Tarjeta de Circulación / Circulation Card",
+        "aseguranza":   "Copia de Aseguranza / Insurance Copy",
+        "cotizacion":   "Copia de Cotización Firmada / Signed Quote",
+        "autorizacion": "Carta de Autorización / Authorization Letter",
+    }
+    chk_table = Table(
+        [[Paragraph(("✓  " if checklist.get(k) else "☐  ") + v, body_style)] for k, v in doc_labels.items()],
+        colWidths=[7*inch]
+    )
+    chk_table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#fafafa")]),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    story.append(chk_table)
+    story.append(Spacer(1, 0.2*inch))
+
+    # Legal text
+    story.append(Paragraph("LIABILITY RELEASE / DESCARGO DE RESPONSABILIDAD", label_style))
+    story.append(Spacer(1, 0.05*inch))
+    legal_style = ParagraphStyle("legal", parent=styles["Normal"], fontSize=7.5, leading=11)
+    origin_text = (
+        "<b>ORIGIN / ORIGEN</b><br/>"
+        "Received by owner in apparent good condition EXCEPT AS NOTED. "
+        "I agree with Arnian's assessment of the vehicle's condition at the time of delivery. "
+        "I have read and understand the terms and conditions. "
+        "I agree to be bound by these terms. This Vehicle is free of contents."
+    )
+    dest_text = (
+        "<b>DESTINATION / DESTINO</b><br/>"
+        "We have received the above vehicle in good condition except as noted, "
+        "thereby releasing Arnian from any further claims regarding pre-existing damage. "
+        "All items as specified above were received."
+    )
+    legal_table = Table(
+        [[Paragraph(origin_text, legal_style), Paragraph(dest_text, legal_style)]],
+        colWidths=[3.5*inch, 3.5*inch]
+    )
+    legal_table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(legal_table)
+    story.append(Spacer(1, 0.2*inch))
+
+    # Signatures
+    def _decode_sig(b64: str):
+        try:
+            return BytesIO(base64.b64decode(b64.split(",")[-1]))
+        except Exception:
+            return None
+
+    sigs = [
+        (insp.firma_origen, insp.nombre_firma_origen, insp.fecha_firma_origen, insp.firma_hash_origen),
+        (insp.firma_destino, insp.nombre_firma_destino, insp.fecha_firma_destino, insp.firma_hash_destino),
+    ]
+    sig_row = []
+    for sig_b64, name_field, date_field, sig_hash in sigs:
+        cell_items = []
+        if sig_b64:
+            buf = _decode_sig(sig_b64)
+            if buf:
+                cell_items.append(Image(buf, width=2.5*inch, height=0.8*inch))
+        cell_items.append(Paragraph(f"Name: {name_field or '_______________'}", body_style))
+        cell_items.append(Paragraph(f"Date: {date_field or '_______________'}", body_style))
+        if sig_hash:
+            cell_items.append(Paragraph(f"Hash: {sig_hash[:16].upper()}", body_style))
+        sig_row.append(cell_items)
+
+    sig_table = Table(
+        [["ORIGIN SIGNATURE", "DESTINATION SIGNATURE"], sig_row],
+        colWidths=[3.5*inch, 3.5*inch]
+    )
+    sig_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 8),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f0f0")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(sig_table)
+
+    if insp.notas_finales:
+        story.append(Spacer(1, 0.15*inch))
+        story.append(Paragraph("Final Notes / Nota Final:", label_style))
+        story.append(Paragraph(insp.notas_finales, body_style))
+
     doc.build(story)
     return f"/uploads/pdfs/{insp.id}_report.pdf"
 
