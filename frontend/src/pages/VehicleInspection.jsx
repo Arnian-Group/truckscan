@@ -1,25 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, CheckCircle } from 'lucide-react'
+import { Loader, CheckCircle, Plus } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
-import DamagePin from '../components/DamagePin'
 import DamageSheet from '../components/DamageSheet'
 import api from '../lib/api'
-import SedanSVG from '../assets/vehicles/SedanSVG'
-import PickupSVG from '../assets/vehicles/PickupSVG'
-import VanSVG from '../assets/vehicles/VanSVG'
-import GolfCartSVG from '../assets/vehicles/GolfCartSVG'
-import CanAmSVG from '../assets/vehicles/CanAmSVG'
-import MotorcycleSVG from '../assets/vehicles/MotorcycleSVG'
-import ATVSVG from '../assets/vehicles/ATVSVG'
-import RacerSVG from '../assets/vehicles/RacerSVG'
-
-const SVG_MAP = {
-  sedan: SedanSVG, pickup: PickupSVG, van: VanSVG,
-  golf: GolfCartSVG, canam: CanAmSVG, motorcycle: MotorcycleSVG,
-  atv: ATVSVG, racer: RacerSVG,
-}
 
 const VIEWS = [
   { id: 'front',    label: 'Front',    labelEs: 'Frontal' },
@@ -41,7 +26,6 @@ export default function VehicleInspection() {
   const [completing, setCompleting] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
   const [selectedDamage, setSelectedDamage] = useState(null)
-  const svgContainerRef = useRef(null)
 
   async function load() {
     try {
@@ -62,12 +46,8 @@ export default function VehicleInspection() {
 
   useEffect(() => { load() }, [id])
 
-  const handleSVGClick = useCallback((e) => {
-    if (e.target.closest('button')) return
-    const rect = svgContainerRef.current.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
-    setPendingCoords({ x_pct: x, y_pct: y })
+  const handleAddDamage = useCallback(() => {
+    setPendingCoords({ x_pct: 50, y_pct: 50 })
   }, [])
 
   async function handleSaveDamage({ damage_type, description, photos }) {
@@ -120,7 +100,6 @@ export default function VehicleInspection() {
     )
   }
 
-  const VehicleSVG = SVG_MAP[insp?.vehicle_type] || SedanSVG
   const viewDamages = (insp?.damages || []).filter(d => d.view === activeView)
   const totalDamages = insp?.damages?.length || 0
   const viewsWithDamages = new Set((insp?.damages || []).map(d => d.view))
@@ -154,38 +133,32 @@ export default function VehicleInspection() {
           })}
         </div>
 
-        {/* SVG canvas area */}
+        {/* Damage area */}
         <div className="flex-1 overflow-auto flex flex-col">
-          <div className="p-3 text-xs text-white/30 font-mono text-center flex-shrink-0">
-            Toca el vehículo para marcar un daño · {viewDamages.length} daño{viewDamages.length !== 1 ? 's' : ''} en esta vista
-          </div>
 
-          <div className="flex-1 flex items-center justify-center px-4">
-            <div
-              ref={svgContainerRef}
-              className="relative w-full cursor-crosshair select-none"
-              style={{ maxWidth: 600 }}
-              onClick={handleSVGClick}
+          {/* Add damage button */}
+          <div className="px-4 pt-4 flex-shrink-0">
+            <button
+              onClick={handleAddDamage}
+              className="w-full flex items-center justify-center gap-2 border border-dashed border-white/20 hover:border-[#F5A623]/60 text-white/40 hover:text-[#F5A623] py-5 transition-colors"
             >
-              <VehicleSVG view={activeView} className="w-full h-auto block" />
-              {viewDamages.map((d, i) => (
-                <DamagePin
-                  key={d.id}
-                  x_pct={d.x_pct} y_pct={d.y_pct}
-                  damage_type={d.damage_type}
-                  index={i}
-                  onClick={e => { e.stopPropagation(); setSelectedDamage(d) }}
-                />
-              ))}
-            </div>
+              <Plus size={18} />
+              <span className="text-sm font-mono">Agregar daño en vista {VIEWS.find(v => v.id === activeView)?.labelEs || activeView}</span>
+            </button>
           </div>
 
           {/* Damage list for this view */}
-          {viewDamages.length > 0 && (
-            <div className="px-4 pb-4 space-y-1.5 flex-shrink-0">
-              {viewDamages.map((d, i) => (
-                <div key={d.id} className="flex items-center gap-3 bg-[#161b27] border border-white/5 px-3 py-2">
-                  <span className="w-5 h-5 rounded-full text-[9px] font-bold flex items-center justify-center text-white"
+          <div className="px-4 py-3 space-y-1.5 flex-1">
+            {viewDamages.length === 0 ? (
+              <p className="text-center text-white/20 text-xs font-mono py-6">Sin daños registrados en esta vista</p>
+            ) : (
+              viewDamages.map((d, i) => (
+                <button
+                  key={d.id}
+                  onClick={() => setSelectedDamage(d)}
+                  className="w-full flex items-center gap-3 bg-[#161b27] border border-white/5 hover:border-white/20 px-3 py-2.5 text-left transition-colors"
+                >
+                  <span className="w-6 h-6 rounded-full text-[10px] font-bold flex items-center justify-center text-white flex-shrink-0"
                     style={{ backgroundColor: { scratched:'#EF4444',dented:'#F97316',stained:'#3B82F6',cracked:'#8B5CF6',missing:'#6B7280',other:'#F5A623' }[d.damage_type] || '#F5A623' }}>
                     {i + 1}
                   </span>
@@ -196,10 +169,10 @@ export default function VehicleInspection() {
                   {d.photos?.length > 0 && (
                     <span className="text-xs text-white/30 font-mono">{d.photos.length}📷</span>
                   )}
-                </div>
-              ))}
-            </div>
-          )}
+                </button>
+              ))
+            )}
+          </div>
         </div>
 
         {/* Footer */}

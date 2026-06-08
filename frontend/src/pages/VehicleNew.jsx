@@ -2,24 +2,16 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import api from '../lib/api'
-import SedanSVG from '../assets/vehicles/SedanSVG'
-import PickupSVG from '../assets/vehicles/PickupSVG'
-import VanSVG from '../assets/vehicles/VanSVG'
-import GolfCartSVG from '../assets/vehicles/GolfCartSVG'
-import CanAmSVG from '../assets/vehicles/CanAmSVG'
-import MotorcycleSVG from '../assets/vehicles/MotorcycleSVG'
-import ATVSVG from '../assets/vehicles/ATVSVG'
-import RacerSVG from '../assets/vehicles/RacerSVG'
 
 const TYPES = [
-  { id: 'sedan',      label: 'Sedan / Auto',     SVG: SedanSVG },
-  { id: 'pickup',     label: 'Pickup Truck',      SVG: PickupSVG },
-  { id: 'van',        label: 'Van',               SVG: VanSVG },
-  { id: 'golf',       label: 'Golf Cart',         SVG: GolfCartSVG },
-  { id: 'canam',      label: 'Can-Am / UTV',      SVG: CanAmSVG },
-  { id: 'motorcycle', label: 'Motocicleta',       SVG: MotorcycleSVG },
-  { id: 'atv',        label: 'Cuatrimoto / ATV',  SVG: ATVSVG },
-  { id: 'racer',      label: 'Racer / Buggy',     SVG: RacerSVG },
+  { id: 'sedan',      label: 'Sedan / Auto',    desc: '4 puertas',       icon: '🚗' },
+  { id: 'pickup',     label: 'Pickup Truck',     desc: 'Camioneta',       icon: '🛻' },
+  { id: 'van',        label: 'Van',              desc: 'Pasajeros / Carga', icon: '🚐' },
+  { id: 'golf',       label: 'Golf Cart',        desc: 'Carrito de golf', icon: '⛳' },
+  { id: 'canam',      label: 'Can-Am / UTV',     desc: 'Side by side',    icon: '🏎️' },
+  { id: 'motorcycle', label: 'Motocicleta',      desc: 'Moto / Scooter',  icon: '🏍️' },
+  { id: 'atv',        label: 'Cuatrimoto',       desc: 'ATV / Quad',      icon: '🚵' },
+  { id: 'racer',      label: 'Racer / Buggy',    desc: 'Off-road',        icon: '🏁' },
 ]
 
 export default function VehicleNew() {
@@ -42,21 +34,20 @@ export default function VehicleNew() {
       <div className="px-4 py-4 pb-24">
         <p className="text-white/40 text-sm font-mono mb-4">Selecciona el tipo de vehículo</p>
         <div className="grid grid-cols-2 gap-3">
-          {TYPES.map(({ id, label, SVG }) => (
+          {TYPES.map(({ id, label, desc, icon }) => (
             <button
               key={id}
               onClick={() => handleSelect(id)}
               disabled={!!loading}
-              className="bg-[#161b27] border border-white/10 hover:border-[#F5A623]/60 active:scale-97 transition-all p-4 flex flex-col items-center gap-3 disabled:opacity-60"
+              className="bg-[#161b27] border border-white/10 hover:border-[#F5A623]/60 active:scale-97 transition-all p-5 flex flex-col items-center gap-2 disabled:opacity-60 min-h-[100px] justify-center"
             >
-              <div className="w-full h-[80px] flex items-center justify-center">
-                {loading === id ? (
-                  <div className="w-8 h-8 border-2 border-[#F5A623] border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <SVG view="side" className="w-full h-full" />
-                )}
-              </div>
-              <span className="text-xs font-mono text-white/70 text-center leading-tight">{label}</span>
+              {loading === id ? (
+                <div className="w-8 h-8 border-2 border-[#F5A623] border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <span className="text-3xl leading-none">{icon}</span>
+              )}
+              <span className="text-sm font-bold text-white text-center leading-tight">{label}</span>
+              <span className="text-[10px] font-mono text-white/40 text-center">{desc}</span>
             </button>
           ))}
         </div>
