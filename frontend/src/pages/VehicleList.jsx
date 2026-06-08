@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Car, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Car, RefreshCw, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import api from '../lib/api'
+import { isAdmin } from '../lib/auth'
 
 const STATUS_LABELS = {
   intake: { label: 'INTAKE', color: 'text-[#F5A623] bg-[#F5A62322] border-[#F5A62340]' },
@@ -18,37 +19,52 @@ function nextRoute(insp) {
   return `/vehicles/${insp.id}`
 }
 
-function InspectionCard({ insp, onClick }) {
+function InspectionCard({ insp, onClick, onArchive, confirmingArchive }) {
   const st = STATUS_LABELS[insp.status] || STATUS_LABELS.intake
+  const canArchive = isAdmin() && (insp.status === 'intake' || insp.status === 'intake_complete')
   return (
-    <motion.button
-      onClick={onClick}
-      whileTap={{ scale: 0.98 }}
-      className="w-full bg-[#161b27] border border-white/10 p-4 text-left hover:border-[#F5A623]/40 active:scale-98 transition-all"
-    >
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <Car size={15} className="text-[#F5A623] shrink-0" />
-            <span className="font-mono font-bold text-sm">
-              {insp.vehicle_type?.toUpperCase()}
-            </span>
-            {insp.year && <span className="text-white/50 text-xs">{insp.year}</span>}
+    <div className="relative">
+      <motion.div
+        onClick={onClick}
+        whileTap={{ scale: 0.98 }}
+        className="w-full bg-[#161b27] border border-white/10 p-4 text-left hover:border-[#F5A623]/40 active:scale-98 transition-all cursor-pointer"
+      >
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <Car size={15} className="text-[#F5A623] shrink-0" />
+              <span className="font-mono font-bold text-sm">
+                {insp.vehicle_type?.toUpperCase()}
+              </span>
+              {insp.year && <span className="text-white/50 text-xs">{insp.year}</span>}
+            </div>
+            <p className="text-white/70 text-sm truncate">
+              {[insp.make, insp.model, insp.color].filter(Boolean).join(' · ') || 'Sin datos'}
+            </p>
+            {insp.nombre && <p className="text-white/40 text-xs font-mono truncate">{insp.nombre}</p>}
           </div>
-          <p className="text-white/70 text-sm truncate">
-            {[insp.make, insp.model, insp.color].filter(Boolean).join(' · ') || 'Sin datos'}
-          </p>
-          {insp.nombre && <p className="text-white/40 text-xs font-mono truncate">{insp.nombre}</p>}
+          <span className={`font-mono text-[10px] font-bold px-2 py-0.5 border uppercase shrink-0 ${canArchive ? 'mr-9' : ''} ${st.color}`}>
+            {st.label}
+          </span>
         </div>
-        <span className={`font-mono text-[10px] font-bold px-2 py-0.5 border uppercase shrink-0 ${st.color}`}>
-          {st.label}
-        </span>
-      </div>
-      <div className="flex justify-between text-xs text-white/25 font-mono mt-2">
-        <span>{insp.city || '—'}</span>
-        <span>{new Date(insp.created_at).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}</span>
-      </div>
-    </motion.button>
+        <div className="flex justify-between text-xs text-white/25 font-mono mt-2">
+          <span>{insp.city || '—'}</span>
+          <span>{new Date(insp.created_at).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}</span>
+        </div>
+      </motion.div>
+      {canArchive && (
+        <button
+          onClick={e => { e.stopPropagation(); onArchive(insp.id) }}
+          className={`absolute top-3 right-3 min-w-[36px] min-h-[36px] flex items-center justify-center transition-all ${
+            confirmingArchive
+              ? 'bg-red-500/20 border border-red-500/60 text-red-400 px-2 text-[9px] font-mono font-bold gap-1'
+              : 'text-white/20 hover:text-red-400 hover:bg-red-400/10'
+          }`}
+        >
+          {confirmingArchive ? <><Trash2 size={11} />¿OK?</> : <Trash2 size={14} />}
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -61,6 +77,7 @@ export default function VehicleList() {
   const [statusFilter, setStatusFilter] = useState('')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
+  const [confirmArchiveId, setConfirmArchiveId] = useState(null)
 
   async function load(p = page, filter = statusFilter) {
     setLoading(true)
@@ -79,6 +96,22 @@ export default function VehicleList() {
 
   useEffect(() => { setPage(1); load(1, statusFilter) }, [statusFilter])
   useEffect(() => { load(page, statusFilter) }, [page])
+
+  async function handleArchive(inspId) {
+    if (confirmArchiveId !== inspId) {
+      setConfirmArchiveId(inspId)
+      setTimeout(() => setConfirmArchiveId(c => c === inspId ? null : c), 4000)
+      return
+    }
+    try {
+      await api.delete(`/vehicles/${inspId}`)
+      setItems(prev => prev.filter(i => i.id !== inspId))
+      setTotal(prev => prev - 1)
+      setConfirmArchiveId(null)
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al archivar')
+    }
+  }
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
@@ -118,7 +151,13 @@ export default function VehicleList() {
           </div>
         ) : (
           items.map(i => (
-            <InspectionCard key={i.id} insp={i} onClick={() => navigate(nextRoute(i))} />
+            <InspectionCard
+              key={i.id}
+              insp={i}
+              onClick={() => navigate(nextRoute(i))}
+              onArchive={handleArchive}
+              confirmingArchive={confirmArchiveId === i.id}
+            />
           ))
         )}
 

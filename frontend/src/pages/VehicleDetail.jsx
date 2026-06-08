@@ -210,31 +210,47 @@ export default function VehicleDetail() {
           )}
         </section>
 
-        {/* Checklist — editable */}
+        {/* Checklist */}
         <section>
           <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3">Documentos Recibidos</h2>
           <div className="space-y-1.5 mb-3">
-            {CHECKLIST_ITEMS.map(({ key, label }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setChecklist(prev => ({ ...prev, [key]: !prev[key] }))}
-                className="w-full flex items-center gap-3 px-3 py-2.5 bg-[#161b27] border border-white/5 hover:border-white/20 transition-colors text-left"
-              >
-                {checklist[key]
-                  ? <CheckSquare size={16} className="text-[#22C55E] shrink-0" />
-                  : <Square size={16} className="text-white/20 shrink-0" />}
-                <span className="text-sm text-white/70">{label}</span>
-              </button>
-            ))}
+            {CHECKLIST_ITEMS.map(({ key, label }) => {
+              const checked = checklist[key]
+              const editable = insp.status !== 'completed'
+              return editable ? (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setChecklist(prev => ({ ...prev, [key]: !prev[key] }))}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 bg-[#161b27] border border-white/5 hover:border-white/20 transition-colors text-left"
+                >
+                  {checked
+                    ? <CheckSquare size={16} className="text-[#22C55E] shrink-0" />
+                    : <Square size={16} className="text-white/20 shrink-0" />}
+                  <span className="text-sm text-white/70">{label}</span>
+                </button>
+              ) : (
+                <div
+                  key={key}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 bg-[#161b27] border border-white/5 text-left"
+                >
+                  {checked
+                    ? <CheckSquare size={16} className="text-[#22C55E] shrink-0" />
+                    : <Square size={16} className="text-white/10 shrink-0" />}
+                  <span className={`text-sm ${checked ? 'text-white/70' : 'text-white/30'}`}>{label}</span>
+                </div>
+              )
+            })}
           </div>
-          <button
-            onClick={handleSaveChecklist}
-            disabled={savingChecklist}
-            className="w-full py-2.5 border border-white/10 text-white/50 font-mono text-xs hover:text-white hover:border-white/30 transition-colors disabled:opacity-40"
-          >
-            {savingChecklist ? 'Guardando...' : 'Guardar documentos'}
-          </button>
+          {insp.status !== 'completed' && (
+            <button
+              onClick={handleSaveChecklist}
+              disabled={savingChecklist}
+              className="w-full py-2.5 border border-white/10 text-white/50 font-mono text-xs hover:text-white hover:border-white/30 transition-colors disabled:opacity-40"
+            >
+              {savingChecklist ? 'Guardando...' : 'Guardar documentos'}
+            </button>
+          )}
         </section>
 
         {/* Signatures */}

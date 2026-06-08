@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import User, UserRole
 from ..auth import get_current_user, require_admin, hash_password
-from ..schemas import UserCreate, UserOut
+from ..schemas import UserCreate, UserOut, UserUpdate
 from ..audit import log_action
 
 router = APIRouter()
@@ -24,10 +24,27 @@ def create_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    if db.query(User).filter(User.email == body.email).first():
+    if db.query(User).filter(User.email == body.email, User.is_active == True).first():
         raise HTTPException(status_code=400, detail="Email ya registrado")
 
     legacy_role = UserRole.admin if body.is_admin else UserRole.operator
+
+    # Reactivate archived user if email already exists (unique constraint)
+    existing = db.query(User).filter(User.email == body.email).first()
+    if existing:
+        existing.name = body.name
+        existing.hashed_password = hash_password(body.password)
+        existing.role = legacy_role
+        existing.is_admin = body.is_admin
+        existing.can_trailers = body.can_trailers
+        existing.can_vehicles = body.can_vehicles
+        existing.is_active = True
+        db.commit()
+        db.refresh(existing)
+        log_action(db, current_user.id, "user_reactivated", "user", str(existing.id),
+                   {"email": body.email, "is_admin": body.is_admin})
+        return existing
+
     user = User(
         id=uuid.uuid4(),
         name=body.name,
@@ -81,3 +98,46 @@ def delete_user(
     user.is_active = False
     db.commit()
     log_action(db, current_user.id, "user_deleted", "user", str(user_id), {"email": user.email})
+
+
+@router.patch("/{user_id}", response_model=UserOut)
+def update_user(
+    user_id: uuid.UUID,
+    body: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="No puedes modificar tu propio rol")
+
+    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    # Prevent removing last admin
+    if body.is_admin is False and user.is_admin:
+        admin_count = db.query(User).filter(User.is_admin == True, User.is_active == True).count()
+        if admin_count <= 1:
+            raise HTTPException(status_code=400, detail="No puedes quitar el admin del único administrador activo")
+
+    if body.is_admin is not None:
+        user.is_admin = body.is_admin
+        user.role = UserRole.admin if body.is_admin else UserRole.operator
+        if body.is_admin:
+            user.can_trailers = True
+            user.can_vehicles = True
+
+    if body.can_trailers is not None and not user.is_admin:
+        user.can_trailers = body.can_trailers
+
+    if body.can_vehicles is not None and not user.is_admin:
+        user.can_vehicles = body.can_vehicles
+
+    db.commit()
+    db.refresh(user)
+    log_action(db, current_user.id, "user_updated", "user", str(user_id), {
+        "is_admin": user.is_admin,
+        "can_trailers": user.can_trailers,
+        "can_vehicles": user.can_vehicles,
+    })
+    return user

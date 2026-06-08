@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, CheckSquare, Square } from 'lucide-react'
+import { Loader, CheckSquare, Square, Trash2 } from 'lucide-react'
 import Layout from '../components/Layout'
 import SignatureCanvas from '../components/SignatureCanvas'
 import api from '../lib/api'
+import { isAdmin } from '../lib/auth'
 
 const CITIES = ['Tijuana', 'CSL', 'San Diego']
 const FUEL_OPTIONS = ['E', '1/4', '1/2', '3/4', 'F']
@@ -44,6 +45,8 @@ export default function VehicleIntake() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [signing, setSigning] = useState(false)
+  const [archiving, setArchiving] = useState(false)
+  const [confirmArchive, setConfirmArchive] = useState(false)
   const [firmaOrigen, setFirmaOrigen] = useState(null)
   const [firmaDestino, setFirmaDestino] = useState(null)
   const [nombreOrigen, setNombreOrigen] = useState('')
@@ -147,6 +150,22 @@ export default function VehicleIntake() {
       alert(err.response?.data?.detail || 'Error al firmar')
     } finally {
       setSigning(false)
+    }
+  }
+
+  async function handleArchive() {
+    if (!confirmArchive) {
+      setConfirmArchive(true)
+      setTimeout(() => setConfirmArchive(false), 5000)
+      return
+    }
+    setArchiving(true)
+    try {
+      await api.delete(`/vehicles/${id}`)
+      navigate('/vehicles')
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al archivar')
+      setArchiving(false)
     }
   }
 
@@ -350,6 +369,24 @@ export default function VehicleIntake() {
             {signing ? 'Generando PDF...' : 'Confirmar y Generar PDF →'}
           </button>
         </section>
+
+        {isAdmin() && (
+          <section className="pt-2 border-t border-white/5">
+            <button
+              type="button"
+              onClick={handleArchive}
+              disabled={archiving}
+              className={`w-full flex items-center justify-center gap-2 py-3 font-mono text-sm transition-all min-h-[48px] ${
+                confirmArchive
+                  ? 'border border-red-500/60 bg-red-500/10 text-red-400 font-bold'
+                  : 'border border-white/10 text-white/30 hover:text-red-400 hover:border-red-400/40'
+              }`}
+            >
+              <Trash2 size={15} />
+              {archiving ? 'Archivando...' : confirmArchive ? '¿Confirmar archivar intake? Tap de nuevo' : 'Archivar este intake'}
+            </button>
+          </section>
+        )}
       </div>
     </Layout>
   )

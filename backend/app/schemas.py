@@ -175,6 +175,12 @@ class VehicleDamageUpdate(BaseModel):
     description: Optional[str] = None
 
 
+class UserUpdate(BaseModel):
+    is_admin: Optional[bool] = None
+    can_trailers: Optional[bool] = None
+    can_vehicles: Optional[bool] = None
+
+
 class ChecklistUpdate(BaseModel):
     checklist: Optional[dict] = None
     notas: Optional[str] = None

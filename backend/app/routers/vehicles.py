@@ -613,6 +613,8 @@ def update_checklist(
     current_user: User = Depends(require_vehicle_agent),
 ):
     insp = _get_inspection(db, inspection_id)
+    if insp.status.value == "completed":
+        raise HTTPException(status_code=400, detail="No se puede modificar una inspección completada")
     if body.checklist is not None:
         insp.checklist = body.checklist
     if body.notas is not None:

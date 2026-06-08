@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, X, UserCheck, Shield, Loader, Trash2, Car, Truck } from 'lucide-react'
+import { Plus, X, UserCheck, Shield, Loader, Trash2, Car, Truck, Pencil } from 'lucide-react'
 import Layout from '../components/Layout'
 import api from '../lib/api'
 import { getUser } from '../lib/auth'
@@ -23,6 +23,7 @@ export default function Users() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
+  const [editingUser, setEditingUser] = useState(null)
   const [confirmId, setConfirmId] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const me = getUser()
@@ -93,7 +94,15 @@ export default function Users() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {!isSelf && (
+                    <button
+                      onClick={() => setEditingUser(user)}
+                      className="min-w-[40px] min-h-[40px] flex items-center justify-center text-white/30 hover:text-[#F5A623] hover:bg-[#F5A62310] transition-all"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                  )}
                   {!isSelf && (
                     <button
                       onClick={() => handleDelete(user.id)}
@@ -127,6 +136,16 @@ export default function Users() {
           <CreateUserModal
             onClose={() => setShowCreate(false)}
             onCreated={(u) => { setUsers((prev) => [...prev, u]); setShowCreate(false) }}
+          />
+        )}
+        {editingUser && (
+          <EditUserModal
+            user={editingUser}
+            onClose={() => setEditingUser(null)}
+            onSaved={(updated) => {
+              setUsers((prev) => prev.map(u => u.id === updated.id ? updated : u))
+              setEditingUser(null)
+            }}
           />
         )}
       </AnimatePresence>
@@ -243,6 +262,94 @@ function CreateUserModal({ onClose, onCreated }) {
             {loading ? 'Creando...' : 'Crear Usuario'}
           </button>
         </form>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+function EditUserModal({ user, onClose, onSaved }) {
+  const [isAdmin, setIsAdmin] = useState(user.is_admin)
+  const [canTrailers, setCanTrailers] = useState(user.can_trailers)
+  const [canVehicles, setCanVehicles] = useState(user.can_vehicles)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  function handleAdminToggle(val) {
+    setIsAdmin(val)
+    if (val) { setCanTrailers(true); setCanVehicles(true) }
+  }
+
+  async function handleSave() {
+    setError('')
+    setLoading(true)
+    try {
+      const { data } = await api.patch(`/users/${user.id}`, {
+        is_admin: isAdmin,
+        can_trailers: isAdmin || canTrailers,
+        can_vehicles: isAdmin || canVehicles,
+      })
+      onSaved(data)
+    } catch (err) {
+      const detail = err.response?.data?.detail
+      setError(Array.isArray(detail) ? detail.map(e => e.msg ?? JSON.stringify(e)).join(', ') : (detail || err.message || 'Error'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex flex-col justify-end"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <motion.div
+        className="relative bg-[#161b27] border-t border-white/10 rounded-t-2xl p-6"
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-bold text-xl">Editar permisos</h2>
+          <button onClick={onClose} className="p-2 text-white/50 min-w-[44px] min-h-[44px] flex items-center justify-center">
+            <X size={20} />
+          </button>
+        </div>
+        <p className="text-white/40 text-sm font-mono mb-5">{user.name} · {user.email}</p>
+
+        <div className="space-y-2 mb-5">
+          <CheckRow
+            checked={isAdmin}
+            onChange={handleAdminToggle}
+            icon={<Shield size={16} className="text-[#F5A623]" />}
+            label="Admin — Acceso total al sistema"
+          />
+          <CheckRow
+            checked={isAdmin || canTrailers}
+            onChange={v => { if (!isAdmin) setCanTrailers(v) }}
+            disabled={isAdmin}
+            icon={<Truck size={16} className="text-blue-400" />}
+            label="Módulo de Carga (trailers)"
+          />
+          <CheckRow
+            checked={isAdmin || canVehicles}
+            onChange={v => { if (!isAdmin) setCanVehicles(v) }}
+            disabled={isAdmin}
+            icon={<Car size={16} className="text-purple-400" />}
+            label="Módulo de Vehículos (receiving)"
+          />
+        </div>
+
+        {error && (
+          <p className="text-red-400 text-sm font-mono border border-red-400/30 bg-red-400/10 px-3 py-2 mb-4">{error}</p>
+        )}
+
+        <button
+          onClick={handleSave}
+          disabled={loading || (!isAdmin && !canTrailers && !canVehicles)}
+          className="w-full bg-[#F5A623] text-[#0f1117] font-bold text-base py-4 min-h-[56px] hover:bg-[#e8961f] transition-colors disabled:opacity-60"
+        >
+          {loading ? 'Guardando...' : 'Guardar cambios'}
+        </button>
       </motion.div>
     </motion.div>
   )
