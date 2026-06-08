@@ -73,10 +73,23 @@ async def _save_mercancias_photo(file: UploadFile, inspection_id: uuid.UUID) -> 
     return f"/uploads/vehicles/{inspection_id}/mercancias/{filename}"
 
 
-_LOGO_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "arnian_logo.png")
+_LOGO_URL = "https://arniangroup.com/assets/arnian-logo-CPJoN4j0.png"
 _NAVY = "#1B3A7A"
 _NAVY_LIGHT = "#E8EDF5"
 _GRAY_LINE = "#C5CDD9"
+
+
+def _get_logo_path() -> str:
+    """Download logo from CDN once and cache in uploads dir."""
+    import urllib.request
+    cached = os.path.join(settings.UPLOADS_DIR, "arnian_logo.png")
+    if os.path.isfile(cached):
+        return cached
+    try:
+        urllib.request.urlretrieve(_LOGO_URL, cached)
+        return cached
+    except Exception:
+        return ""
 
 
 def _generate_liability_pdf(insp: VehicleInspection) -> str:
@@ -110,8 +123,9 @@ def _generate_liability_pdf(insp: VehicleInspection) -> str:
 
     # Header with logo
     header_items = []
-    if os.path.isfile(_LOGO_PATH):
-        header_items.append(Image(_LOGO_PATH, width=1.8*inch, height=0.6*inch))
+    _logo = _get_logo_path()
+    if _logo:
+        header_items.append(Image(_logo, width=1.8*inch, height=0.6*inch))
     else:
         header_items.append(Paragraph("ARNIAN GROUP", ParagraphStyle("t", parent=styles["Title"], fontSize=16)))
     header_items.append(Paragraph(
@@ -313,8 +327,9 @@ def _generate_full_report_pdf(insp: VehicleInspection, base_url: Optional[str] =
         header_text += f"<br/><font size='9' color='#555555'>{vehicle_str}</font>"
 
     header_items = []
-    if os.path.isfile(_LOGO_PATH):
-        header_items.append(Image(_LOGO_PATH, width=1.8*inch, height=0.6*inch))
+    _logo = _get_logo_path()
+    if _logo:
+        header_items.append(Image(_logo, width=1.8*inch, height=0.6*inch))
     else:
         header_items.append(Paragraph("ARNIAN GROUP", ParagraphStyle("t", parent=styles["Title"], fontSize=14)))
     header_items.append(Paragraph(header_text, sub_style))
@@ -542,8 +557,9 @@ def _generate_mercancias_pdf(insp: VehicleInspection) -> str:
     folio_str = f"  [{insp.folio}]" if insp.folio else ""
 
     header_items = []
-    if os.path.isfile(_LOGO_PATH):
-        header_items.append(Image(_LOGO_PATH, width=1.8*inch, height=0.6*inch))
+    _logo = _get_logo_path()
+    if _logo:
+        header_items.append(Image(_logo, width=1.8*inch, height=0.6*inch))
     else:
         header_items.append(Paragraph("ARNIAN GROUP", ParagraphStyle("t", parent=styles["Title"], fontSize=14)))
     header_items.append(Paragraph(
