@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Car, RefreshCw, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
+import { Plus, Car, RefreshCw, ChevronLeft, ChevronRight, Trash2, Search, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import api from '../lib/api'
@@ -78,12 +78,31 @@ export default function VehicleList() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [confirmArchiveId, setConfirmArchiveId] = useState(null)
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
+  const debounceRef = useRef(null)
 
-  async function load(p = page, filter = statusFilter) {
+  function handleSearchChange(val) {
+    setSearchInput(val)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      setSearch(val.trim())
+      setPage(1)
+    }, 350)
+  }
+
+  function clearSearch() {
+    setSearchInput('')
+    setSearch('')
+    setPage(1)
+  }
+
+  async function load(p = page, filter = statusFilter, q = search) {
     setLoading(true)
     try {
       const params = { page: p, page_size: PAGE_SIZE }
       if (filter) params.status = filter
+      if (q) params.search = q
       const { data } = await api.get('/vehicles', { params })
       setItems(data?.items ?? [])
       setTotal(data?.total ?? 0)
@@ -94,8 +113,8 @@ export default function VehicleList() {
     }
   }
 
-  useEffect(() => { setPage(1); load(1, statusFilter) }, [statusFilter])
-  useEffect(() => { load(page, statusFilter) }, [page])
+  useEffect(() => { setPage(1); load(1, statusFilter, search) }, [statusFilter])
+  useEffect(() => { load(page, statusFilter, search) }, [page, search])
 
   async function handleArchive(inspId) {
     if (confirmArchiveId !== inspId) {
@@ -139,6 +158,25 @@ export default function VehicleList() {
         </button>
       </div>
 
+      {/* Search bar */}
+      <div className="px-4 py-2.5 border-b border-white/5">
+        <div className="relative flex items-center">
+          <Search size={14} className="absolute left-3 text-white/30 pointer-events-none" />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={e => handleSearchChange(e.target.value)}
+            placeholder="Buscar por folio, placas o cliente..."
+            className="w-full bg-[#1e2535] border border-white/10 text-white text-sm pl-8 pr-8 py-2.5 focus:outline-none focus:border-[#F5A623] placeholder-white/20 font-mono"
+          />
+          {searchInput && (
+            <button onClick={clearSearch} className="absolute right-2 p-1 text-white/30 hover:text-white">
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="px-4 py-4 space-y-3 pb-28">
         {loading ? (
           <div className="flex justify-center py-16">
@@ -147,7 +185,12 @@ export default function VehicleList() {
         ) : items.length === 0 ? (
           <div className="text-center py-16 text-white/30">
             <Car size={40} className="mx-auto mb-3 opacity-20" />
-            <p className="font-mono text-sm">No hay inspecciones</p>
+            <p className="font-mono text-sm">{search ? `Sin resultados para "${search}"` : 'No hay inspecciones'}</p>
+            {search && (
+              <button onClick={clearSearch} className="mt-2 text-xs text-[#F5A623]/60 hover:text-[#F5A623] font-mono">
+                Limpiar búsqueda
+              </button>
+            )}
           </div>
         ) : (
           items.map(i => (

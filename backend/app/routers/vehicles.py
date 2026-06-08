@@ -9,6 +9,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import or_
 
 from ..database import get_db
 from ..models import User, VehicleInspection, VehicleDamage, InspectionStatus
@@ -462,6 +463,7 @@ def list_inspections(
     status: Optional[str] = None,
     vehicle_type: Optional[str] = None,
     city: Optional[str] = None,
+    search: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vehicle_agent),
 ):
@@ -472,6 +474,15 @@ def list_inspections(
         q = q.filter(VehicleInspection.vehicle_type == vehicle_type)
     if city:
         q = q.filter(VehicleInspection.city == city)
+    if search:
+        term = f"%{search.strip()}%"
+        q = q.filter(
+            or_(
+                VehicleInspection.folio.ilike(term),
+                VehicleInspection.placas.ilike(term),
+                VehicleInspection.nombre.ilike(term),
+            )
+        )
     total = q.count()
     items = (
         q.order_by(VehicleInspection.created_at.desc())
