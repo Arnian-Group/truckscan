@@ -28,6 +28,7 @@ class VehicleType(str, enum.Enum):
     motorcycle = "motorcycle"
     atv = "atv"
     racer = "racer"
+    mercancias = "mercancias"
 
 
 class InspectionStatus(str, enum.Enum):
@@ -136,6 +137,9 @@ class VehicleInspection(Base):
     gasolina = Column(String(10), nullable=True)
     notas = Column(Text, nullable=True)
     checklist = Column(JSON, nullable=True)
+    mercancias_descripcion = Column(Text, nullable=True)
+    nombre_entrega = Column(String(255), nullable=True)
+    mercancias_fotos = Column(JSON, nullable=True, default=list)
 
     firma_origen = Column(Text, nullable=True)
     nombre_firma_origen = Column(String(255), nullable=True)

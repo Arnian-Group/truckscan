@@ -173,6 +173,7 @@ export default function VehicleDetail() {
     }
   }
 
+  const isMercancias = insp.vehicle_type === 'mercancias'
   const realDamages = damages.filter(d => d.damage_type !== 'condition')
   const conditionPhotos = damages.filter(d => d.damage_type === 'condition')
   const dmgSummary = realDamages.reduce((acc, d) => {
@@ -198,19 +199,60 @@ export default function VehicleDetail() {
               {st.label}
             </span>
           </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-            {insp.nombre && <InfoRow label="Cliente" value={insp.nombre} />}
-            {insp.placas && <InfoRow label="Placas" value={insp.placas} />}
-            {insp.vin && <InfoRow label="VIN" value={insp.vin} />}
-            {insp.odometer && <InfoRow label="Odómetro" value={`${insp.odometer.toLocaleString()} km/mi`} />}
-            {insp.gasolina && <InfoRow label="Combustible" value={insp.gasolina} />}
-            {insp.city && <InfoRow label="Ciudad" value={insp.city} />}
-            {insp.fecha && <InfoRow label="Fecha" value={new Date(insp.fecha).toLocaleDateString('es-MX')} />}
-          </div>
+          {isMercancias ? (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+              {insp.nombre_entrega && <InfoRow label="Entregado por" value={insp.nombre_entrega} />}
+              {insp.nombre && <InfoRow label="Recibido por" value={insp.nombre} />}
+              {insp.city && <InfoRow label="Ciudad" value={insp.city} />}
+              {insp.fecha && <InfoRow label="Fecha" value={new Date(insp.fecha).toLocaleDateString('es-MX')} />}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+              {insp.nombre && <InfoRow label="Cliente" value={insp.nombre} />}
+              {insp.placas && <InfoRow label="Placas" value={insp.placas} />}
+              {insp.vin && <InfoRow label="VIN" value={insp.vin} />}
+              {insp.odometer && <InfoRow label="Odómetro" value={`${insp.odometer.toLocaleString()} km/mi`} />}
+              {insp.gasolina && <InfoRow label="Combustible" value={insp.gasolina} />}
+              {insp.city && <InfoRow label="Ciudad" value={insp.city} />}
+              {insp.fecha && <InfoRow label="Fecha" value={new Date(insp.fecha).toLocaleDateString('es-MX')} />}
+            </div>
+          )}
         </div>
 
+        {/* Mercancias content */}
+        {isMercancias && (
+          <>
+            {insp.mercancias_descripcion && (
+              <section>
+                <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-2">Descripción de Mercancía</h2>
+                <p className="text-white/70 text-sm bg-[#161b27] border border-white/5 p-4 leading-relaxed whitespace-pre-wrap">{insp.mercancias_descripcion}</p>
+              </section>
+            )}
+            {(insp.mercancias_fotos?.length > 0) && (
+              <section>
+                <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3">
+                  Fotos — {insp.mercancias_fotos.length} foto{insp.mercancias_fotos.length !== 1 ? 's' : ''}
+                </h2>
+                <div className="grid grid-cols-3 gap-2">
+                  {insp.mercancias_fotos.map((p, i) => {
+                    const all = insp.mercancias_fotos.map(x => mediaUrl(x))
+                    return (
+                      <button key={i} onClick={() => openPhoto(all, i)} className="relative aspect-square group">
+                        <img src={mediaUrl(p)} alt="" className="w-full h-full object-cover border border-white/10 group-hover:border-[#F5A623]/60 transition-colors" />
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
+                          <ZoomIn size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+
         {/* Condition photos */}
-        {conditionPhotos.length > 0 && (
+        {!isMercancias && conditionPhotos.length > 0 && (
           <section>
             <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3">
               Fotos de condición — {conditionPhotos.length} vista{conditionPhotos.length !== 1 ? 's' : ''}
@@ -246,7 +288,7 @@ export default function VehicleDetail() {
         )}
 
         {/* Damage summary */}
-        <section>
+        {!isMercancias && <section>
           <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3">
             Daños — {realDamages.length} total{realDamages.length !== 1 ? 'es' : ''}
           </h2>
@@ -298,10 +340,10 @@ export default function VehicleDetail() {
               ))}
             </>
           )}
-        </section>
+        </section>}
 
         {/* Checklist */}
-        <section>
+        {!isMercancias && <section>
           <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3">Documentos Recibidos</h2>
           <div className="space-y-1.5 mb-3">
             {CHECKLIST_ITEMS.map(({ key, label }) => {
@@ -341,7 +383,7 @@ export default function VehicleDetail() {
               {savingChecklist ? 'Guardando...' : 'Guardar documentos'}
             </button>
           )}
-        </section>
+        </section>}
 
         {/* Signatures */}
         {(insp.firma_origen || insp.firma_destino) && (
@@ -350,7 +392,7 @@ export default function VehicleDetail() {
             <div className="grid grid-cols-2 gap-3">
               {insp.firma_origen && (
                 <div className="bg-[#161b27] border border-white/10 p-3">
-                  <p className="text-[10px] font-mono text-white/30 mb-2">ORIGEN</p>
+                  <p className="text-[10px] font-mono text-white/30 mb-2">{isMercancias ? 'ENTREGA' : 'ORIGEN'}</p>
                   <img src={insp.firma_origen} alt="Firma origen" className="w-full h-16 object-contain bg-white" />
                   {insp.nombre_firma_origen && <p className="text-xs text-white/50 mt-1.5 truncate">{insp.nombre_firma_origen}</p>}
                   {insp.firma_hash_origen && (
@@ -365,7 +407,7 @@ export default function VehicleDetail() {
               )}
               {insp.firma_destino && (
                 <div className="bg-[#161b27] border border-white/10 p-3">
-                  <p className="text-[10px] font-mono text-white/30 mb-2">DESTINO</p>
+                  <p className="text-[10px] font-mono text-white/30 mb-2">{isMercancias ? 'RECIBE' : 'DESTINO'}</p>
                   <img src={insp.firma_destino} alt="Firma destino" className="w-full h-16 object-contain bg-white" />
                   {insp.nombre_firma_destino && <p className="text-xs text-white/50 mt-1.5 truncate">{insp.nombre_firma_destino}</p>}
                   {insp.firma_hash_destino && (
@@ -414,20 +456,20 @@ export default function VehicleDetail() {
           })()}
           {insp.full_report_pdf_path && (
             <button
-              onClick={() => openPDF(`/vehicles/${id}/report-pdf`)}
+              onClick={() => openPDF(`/vehicles/${id}/${isMercancias ? 'mercancias-pdf' : 'report-pdf'}`)}
               className="w-full flex items-center gap-3 py-3.5 px-4 border border-white/10 hover:border-[#F5A623]/40 transition-colors"
             >
               <Printer size={18} className="text-[#F5A623]" />
-              <span className="flex-1 text-sm text-left">Imprimir / Guardar Reporte Completo</span>
+              <span className="flex-1 text-sm text-left">{isMercancias ? 'Imprimir Recibo de Mercancía' : 'Imprimir / Guardar Reporte Completo'}</span>
               <ExternalLink size={14} className="text-white/30" />
             </button>
           )}
           {insp.status !== 'completed' && (
             <button
-              onClick={() => navigate(`/vehicles/${id}/inspection`)}
+              onClick={() => navigate(isMercancias ? `/vehicles/${id}/mercancias` : `/vehicles/${id}/inspection`)}
               className="w-full py-3.5 border border-purple-400/40 text-purple-400 font-mono text-sm hover:bg-purple-400/10 transition-colors"
             >
-              Continuar Inspección →
+              {isMercancias ? 'Continuar Recibo →' : 'Continuar Inspección →'}
             </button>
           )}
           {admin && (

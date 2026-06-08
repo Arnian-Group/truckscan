@@ -14,6 +14,7 @@ const STATUS_LABELS = {
 }
 
 function nextRoute(insp) {
+  if (insp.vehicle_type === 'mercancias' && insp.status !== 'completed') return `/vehicles/${insp.id}/mercancias`
   if (insp.status === 'intake') return `/vehicles/${insp.id}/intake`
   if (insp.status === 'intake_complete' || insp.status === 'in_inspection') return `/vehicles/${insp.id}/inspection`
   return `/vehicles/${insp.id}`
@@ -39,9 +40,13 @@ function InspectionCard({ insp, onClick, onArchive, confirmingArchive }) {
               {insp.year && <span className="text-white/50 text-xs">{insp.year}</span>}
             </div>
             <p className="text-white/70 text-sm truncate">
-              {[insp.make, insp.model, insp.color].filter(Boolean).join(' · ') || 'Sin datos'}
+              {insp.vehicle_type === 'mercancias'
+                ? (insp.mercancias_descripcion ? insp.mercancias_descripcion.slice(0, 60) : 'Recibo de mercancía')
+                : ([insp.make, insp.model, insp.color].filter(Boolean).join(' · ') || 'Sin datos')}
             </p>
-            {insp.nombre && <p className="text-white/40 text-xs font-mono truncate">{insp.nombre}</p>}
+            {insp.vehicle_type === 'mercancias'
+              ? (insp.nombre_entrega && <p className="text-white/40 text-xs font-mono truncate">Entrega: {insp.nombre_entrega}</p>)
+              : (insp.nombre && <p className="text-white/40 text-xs font-mono truncate">{insp.nombre}</p>)}
           </div>
           <span className={`font-mono text-[10px] font-bold px-2 py-0.5 border uppercase shrink-0 ${canArchive ? 'mr-9' : ''} ${st.color}`}>
             {st.label}

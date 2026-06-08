@@ -12,6 +12,7 @@ const TYPES = [
   { id: 'motorcycle', label: 'Motocicleta',      desc: 'Moto / Scooter',  icon: '🏍️' },
   { id: 'atv',        label: 'Cuatrimoto',       desc: 'ATV / Quad',      icon: '🚵' },
   { id: 'racer',      label: 'Racer / Buggy',    desc: 'Off-road',        icon: '🏁' },
+  { id: 'mercancias', label: 'Mercancía',        desc: 'Recibo de carga', icon: '📦' },
 ]
 
 export default function VehicleNew() {
@@ -22,7 +23,11 @@ export default function VehicleNew() {
     setLoading(type_id)
     try {
       const { data } = await api.post('/vehicles', { vehicle_type: type_id })
-      navigate(`/vehicles/${data.id}/intake`)
+      if (type_id === 'mercancias') {
+        navigate(`/vehicles/${data.id}/mercancias`)
+      } else {
+        navigate(`/vehicles/${data.id}/intake`)
+      }
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al crear inspección')
       setLoading(null)

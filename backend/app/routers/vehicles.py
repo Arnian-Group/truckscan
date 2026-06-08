@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 
 from ..database import get_db
-from ..models import User, VehicleInspection, VehicleDamage, InspectionStatus
+from ..models import User, VehicleInspection, VehicleDamage, InspectionStatus, VehicleType
 from ..auth import get_current_user, require_vehicle_agent, require_admin, get_current_user_download
 from ..schemas import (
     VehicleIntakeCreate, VehicleIntakeUpdate, SignBody,
@@ -58,6 +58,19 @@ async def _save_photo(file: UploadFile, inspection_id: uuid.UUID, damage_id: uui
     with open(os.path.join(dir_path, filename), "wb") as f:
         f.write(contents)
     return f"/uploads/vehicles/{inspection_id}/{damage_id}/{filename}"
+
+
+async def _save_mercancias_photo(file: UploadFile, inspection_id: uuid.UUID) -> str:
+    ext = "jpg"
+    if file.filename and "." in file.filename:
+        ext = file.filename.rsplit(".", 1)[-1].lower()
+    filename = f"{uuid.uuid4()}.{ext}"
+    dir_path = os.path.join(settings.UPLOADS_DIR, "vehicles", str(inspection_id), "mercancias")
+    os.makedirs(dir_path, exist_ok=True)
+    contents = await file.read()
+    with open(os.path.join(dir_path, filename), "wb") as f:
+        f.write(contents)
+    return f"/uploads/vehicles/{inspection_id}/mercancias/{filename}"
 
 
 def _generate_liability_pdf(insp: VehicleInspection) -> str:
@@ -454,6 +467,136 @@ def _generate_full_report_pdf(insp: VehicleInspection, base_url: Optional[str] =
     return f"/uploads/pdfs/{insp.id}_report.pdf"
 
 
+def _generate_mercancias_pdf(insp: VehicleInspection) -> str:
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer, Image, HRFlowable
+    )
+
+    pdfs_dir = os.path.join(settings.UPLOADS_DIR, "pdfs")
+    os.makedirs(pdfs_dir, exist_ok=True)
+    out_path = os.path.join(pdfs_dir, f"{insp.id}_mercancias.pdf")
+
+    doc = SimpleDocTemplate(out_path, pagesize=letter,
+                            leftMargin=0.75*inch, rightMargin=0.75*inch,
+                            topMargin=0.75*inch, bottomMargin=0.75*inch)
+    styles = getSampleStyleSheet()
+    amber = colors.HexColor("#F5A623")
+
+    title_style = ParagraphStyle("title", parent=styles["Title"], fontSize=16, spaceAfter=4)
+    sub_style = ParagraphStyle("sub", parent=styles["Normal"], fontSize=10,
+                               textColor=colors.HexColor("#555555"), spaceAfter=12)
+    label_style = ParagraphStyle("label", parent=styles["Normal"], fontSize=8,
+                                 textColor=colors.HexColor("#777777"), fontName="Helvetica-Bold")
+    body_style = ParagraphStyle("body", parent=styles["Normal"], fontSize=9, spaceAfter=4, leading=14)
+    name_style = ParagraphStyle("ns", parent=styles["Normal"], fontSize=8, spaceAfter=2)
+
+    def cell(v): return str(v) if v is not None else "—"
+
+    story = []
+    folio_str = f"  [{insp.folio}]" if insp.folio else ""
+    story.append(Paragraph("ARNIAN GROUP", title_style))
+    story.append(Paragraph(f"Recibo de Mercancía{folio_str}", sub_style))
+    story.append(HRFlowable(width="100%", thickness=1, color=amber))
+    story.append(Spacer(1, 0.15*inch))
+
+    info_data = [
+        ["Folio", cell(insp.folio), "Fecha", cell(insp.fecha), "Ciudad", cell(insp.city)],
+        ["Entregado por", cell(insp.nombre_entrega), "Recibido por", cell(insp.nombre), "", ""],
+    ]
+    info_table = Table(info_data, colWidths=[1.1*inch, 1.8*inch, 0.9*inch, 1.4*inch, 0.8*inch, 1*inch])
+    info_table.setStyle(TableStyle([
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
+        ("FONTNAME", (4, 0), (4, -1), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#fafafa")]),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]))
+    story.append(info_table)
+    story.append(Spacer(1, 0.2*inch))
+
+    story.append(Paragraph("DESCRIPCIÓN DE MERCANCÍA / GOODS DESCRIPTION", label_style))
+    story.append(Spacer(1, 0.05*inch))
+    desc_table = Table(
+        [[Paragraph(insp.mercancias_descripcion or "—", body_style)]],
+        colWidths=[7*inch]
+    )
+    desc_table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 8), ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(desc_table)
+    story.append(Spacer(1, 0.15*inch))
+
+    if insp.notas:
+        story.append(Paragraph("NOTAS / NOTES", label_style))
+        story.append(Spacer(1, 0.05*inch))
+        notes_table = Table([[Paragraph(insp.notas, body_style)]], colWidths=[7*inch])
+        notes_table.setStyle(TableStyle([
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        story.append(notes_table)
+        story.append(Spacer(1, 0.15*inch))
+
+    foto_count = len(insp.mercancias_fotos or [])
+    if foto_count:
+        story.append(Paragraph(
+            f"EVIDENCIA FOTOGRÁFICA: {foto_count} foto(s) registrada(s)", label_style
+        ))
+        story.append(Spacer(1, 0.15*inch))
+
+    story.append(Paragraph("FIRMAS / SIGNATURES", label_style))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#cccccc")))
+    story.append(Spacer(1, 0.1*inch))
+
+    def _decode_sig(b64: str):
+        try:
+            return BytesIO(base64.b64decode(b64.split(",")[-1]))
+        except Exception:
+            return None
+
+    sig_row = []
+    for sig_b64, name_field in [
+        (insp.firma_origen, insp.nombre_firma_origen),
+        (insp.firma_destino, insp.nombre_firma_destino),
+    ]:
+        items = []
+        if sig_b64:
+            buf = _decode_sig(sig_b64)
+            if buf:
+                items.append(Image(buf, width=2.5*inch, height=0.8*inch))
+        items.append(Paragraph(f"Nombre: {name_field or '_______________'}", name_style))
+        sig_row.append(items)
+
+    sig_table = Table(
+        [["ENTREGA / DELIVERS", "RECIBE / RECEIVES"], sig_row],
+        colWidths=[3.5*inch, 3.5*inch]
+    )
+    sig_table.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 8),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f0f0")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(sig_table)
+
+    doc.build(story)
+    return f"/uploads/pdfs/{insp.id}_mercancias.pdf"
+
+
 # ── endpoints ─────────────────────────────────────────────────────────────────
 
 @router.get("", response_model=PaginatedResponse)
@@ -508,7 +651,8 @@ def create_inspection(
     from datetime import date as date_type
     ref_date = body.fecha or date_type.today()
     year_month = ref_date.strftime("%Y%m")
-    prefix = f"VH-{year_month}-"
+    type_code = "MC" if body.vehicle_type == VehicleType.mercancias else "VH"
+    prefix = f"{type_code}-{year_month}-"
     existing = db.query(VehicleInspection.folio).filter(
         VehicleInspection.folio.like(f"{prefix}%")
     ).all()
@@ -799,6 +943,85 @@ def get_report_pdf(
     return FileResponse(fs_path, media_type="application/pdf",
                         filename=f"report_{insp.id}.pdf")
 
+
+
+@router.post("/{inspection_id}/mercancias-save", response_model=VehicleInspectionOut)
+async def save_mercancias(
+    inspection_id: uuid.UUID,
+    nombre_recibe: str = Form(...),
+    nombre_entrega: str = Form(...),
+    descripcion: str = Form(...),
+    notas: Optional[str] = Form(None),
+    fecha: Optional[str] = Form(None),
+    city: Optional[str] = Form(None),
+    firma_origen: str = Form(...),
+    nombre_firma_origen: Optional[str] = Form(None),
+    firma_destino: Optional[str] = Form(None),
+    nombre_firma_destino: Optional[str] = Form(None),
+    fotos: List[UploadFile] = File(default=[]),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vehicle_agent),
+):
+    insp = _get_inspection(db, inspection_id)
+    if insp.status == InspectionStatus.completed:
+        raise HTTPException(status_code=400, detail="Ya está completado")
+
+    insp.nombre = nombre_recibe
+    insp.nombre_entrega = nombre_entrega
+    insp.mercancias_descripcion = descripcion
+    insp.notas = notas
+    if city:
+        insp.city = city
+    if fecha:
+        try:
+            from datetime import date as date_type
+            insp.fecha = date_type.fromisoformat(fecha)
+        except ValueError:
+            pass
+
+    saved_photos = list(insp.mercancias_fotos or [])
+    for f in fotos:
+        if f.filename and f.size and f.size > 0:
+            path = await _save_mercancias_photo(f, inspection_id)
+            saved_photos.append(path)
+    insp.mercancias_fotos = saved_photos
+
+    insp.firma_origen = firma_origen
+    insp.nombre_firma_origen = nombre_firma_origen
+    insp.firma_hash_origen = _sig_hash(inspection_id, nombre_firma_origen, insp.fecha, firma_origen)
+    if firma_destino:
+        insp.firma_destino = firma_destino
+        insp.nombre_firma_destino = nombre_firma_destino
+        insp.firma_hash_destino = _sig_hash(inspection_id, nombre_firma_destino, insp.fecha, firma_destino)
+
+    insp.status = InspectionStatus.completed
+    db.commit()
+
+    pdf_path = _generate_mercancias_pdf(insp)
+    insp.full_report_pdf_path = pdf_path
+    db.commit()
+    db.refresh(insp)
+
+    log_action(db, current_user.id, "mercancias_saved", "vehicle_inspection", str(insp.id))
+    return _get_inspection(db, insp.id)
+
+
+@router.get("/{inspection_id}/mercancias-pdf")
+def get_mercancias_pdf(
+    inspection_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_download),
+):
+    insp = _get_inspection(db, inspection_id)
+    fs_path = os.path.join(settings.UPLOADS_DIR, "pdfs", f"{insp.id}_mercancias.pdf")
+    if not os.path.exists(fs_path):
+        if not insp.full_report_pdf_path:
+            raise HTTPException(status_code=404, detail="PDF no disponible aún")
+        _generate_mercancias_pdf(insp)
+    if not os.path.exists(fs_path):
+        raise HTTPException(status_code=404, detail="Archivo PDF no encontrado")
+    return FileResponse(fs_path, media_type="application/pdf",
+                        filename=f"recibo_{insp.folio or insp.id}.pdf")
 
 
 @router.delete("/{inspection_id}", status_code=204)

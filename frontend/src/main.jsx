@@ -13,6 +13,7 @@ import VehicleNew from './pages/VehicleNew'
 import VehicleIntake from './pages/VehicleIntake'
 import VehicleInspection from './pages/VehicleInspection'
 import VehicleDetail from './pages/VehicleDetail'
+import MercanciaIntake from './pages/MercanciaIntake'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
 import VehicleRoute from './components/VehicleRoute'
@@ -37,6 +38,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route path="/vehicles/new" element={<VehicleNew />} />
             <Route path="/vehicles/:id/intake" element={<VehicleIntake />} />
             <Route path="/vehicles/:id/inspection" element={<VehicleInspection />} />
+            <Route path="/vehicles/:id/mercancias" element={<MercanciaIntake />} />
             <Route path="/vehicles/:id" element={<VehicleDetail />} />
           </Route>
           <Route element={<AdminRoute />}>
