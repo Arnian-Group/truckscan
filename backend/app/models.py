@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, date, timezone
 from sqlalchemy import (
-    Column, String, DateTime, ForeignKey, Text, JSON,
-    Enum as SAEnum, Integer, Boolean
+    Column, String, DateTime, Date, ForeignKey, Text, JSON,
+    Enum as SAEnum, Integer, Float, Boolean
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
@@ -17,6 +17,24 @@ def utcnow():
 class UserRole(str, enum.Enum):
     admin = "admin"
     operator = "operator"
+
+
+class VehicleType(str, enum.Enum):
+    sedan = "sedan"
+    pickup = "pickup"
+    van = "van"
+    golf = "golf"
+    canam = "canam"
+    motorcycle = "motorcycle"
+    atv = "atv"
+    racer = "racer"
+
+
+class InspectionStatus(str, enum.Enum):
+    intake = "intake"
+    intake_complete = "intake_complete"
+    in_inspection = "in_inspection"
+    completed = "completed"
 
 
 class TrailerStatus(str, enum.Enum):
@@ -40,8 +58,14 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
+    # Permission flags (v2)
+    is_admin = Column(Boolean, default=False, server_default='false')
+    can_trailers = Column(Boolean, default=False, server_default='false')
+    can_vehicles = Column(Boolean, default=False, server_default='false')
+
     trailers = relationship("Trailer", back_populates="creator")
     audit_logs = relationship("AuditLog", back_populates="user")
+    vehicle_inspections = relationship("VehicleInspection", back_populates="creator")
 
 
 class Trailer(Base):
@@ -89,3 +113,64 @@ class AuditLog(Base):
     metadata_ = Column("metadata", JSON, nullable=True)
 
     user = relationship("User", back_populates="audit_logs")
+
+
+class VehicleInspection(Base):
+    __tablename__ = "vehicle_inspections"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    vehicle_type = Column(SAEnum(VehicleType), nullable=False)
+    status = Column(SAEnum(InspectionStatus), nullable=False, default=InspectionStatus.intake)
+
+    fecha = Column(Date, nullable=True)
+    city = Column(String(100), nullable=True)
+    nombre = Column(String(255), nullable=True)
+    id_cliente = Column(String(255), nullable=True)
+    year = Column(Integer, nullable=True)
+    make = Column(String(100), nullable=True)
+    model = Column(String(100), nullable=True)
+    color = Column(String(100), nullable=True)
+    placas = Column(String(50), nullable=True)
+    odometer = Column(Integer, nullable=True)
+    vin = Column(String(17), nullable=True)
+    gasolina = Column(String(10), nullable=True)
+    notas = Column(Text, nullable=True)
+    checklist = Column(JSON, nullable=True)
+
+    firma_origen = Column(Text, nullable=True)
+    nombre_firma_origen = Column(String(255), nullable=True)
+    fecha_firma_origen = Column(Date, nullable=True)
+    firma_destino = Column(Text, nullable=True)
+    nombre_firma_destino = Column(String(255), nullable=True)
+    fecha_firma_destino = Column(Date, nullable=True)
+
+    liability_pdf_path = Column(String(500), nullable=True)
+    full_report_pdf_path = Column(String(500), nullable=True)
+
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    creator = relationship("User", back_populates="vehicle_inspections")
+    damages = relationship(
+        "VehicleDamage", back_populates="inspection",
+        order_by="VehicleDamage.created_at", cascade="all, delete-orphan"
+    )
+
+
+class VehicleDamage(Base):
+    __tablename__ = "vehicle_damages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    inspection_id = Column(UUID(as_uuid=True), ForeignKey("vehicle_inspections.id"), nullable=False)
+    view = Column(String(50), nullable=False)
+    x_pct = Column(Float, nullable=False)
+    y_pct = Column(Float, nullable=False)
+    damage_type = Column(String(50), nullable=False)
+    description = Column(Text, nullable=True)
+    photos = Column(JSON, nullable=False, default=list)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    inspection = relationship("VehicleInspection", back_populates="damages")
+    creator = relationship("User", foreign_keys=[created_by])

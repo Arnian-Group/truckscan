@@ -11,44 +11,86 @@ from .database import engine, SessionLocal, Base
 from .models import User, Trailer, Section, UserRole, TrailerStatus, SectionStatus
 from .auth import hash_password
 from .config import settings
-from .routers import auth, trailers, sections, users, audit
+from .routers import auth, trailers, sections, users, audit, vehicles
 
 
 def seed_db(db: Session):
-    if db.query(User).filter(User.email == "admin@arnian.com").first():
-        return
-
-    admin = User(
-        id=uuid.uuid4(),
-        name="Admin",
-        email="admin@arnian.com",
-        hashed_password=hash_password("Admin1234!"),
-        role=UserRole.admin,
-        is_active=True,
-    )
-    operator = User(
-        id=uuid.uuid4(),
-        name="Operator",
-        email="ops@arnian.com",
-        hashed_password=hash_password("Ops1234!"),
-        role=UserRole.operator,
-        is_active=True,
-    )
-    db.add(admin)
-    db.add(operator)
+    seeds = [
+        {
+            "name": "Admin",
+            "email": "admin@arnian.com",
+            "password": "Admin1234!",
+            "role": UserRole.admin,
+            "is_admin": True,
+            "can_trailers": True,
+            "can_vehicles": True,
+        },
+        {
+            "name": "Operator",
+            "email": "ops@arnian.com",
+            "password": "Ops1234!",
+            "role": UserRole.operator,
+            "is_admin": False,
+            "can_trailers": True,
+            "can_vehicles": False,
+        },
+        {
+            "name": "Vehicles Agent",
+            "email": "vehicles@arnian.com",
+            "password": "Vehicles1234!",
+            "role": UserRole.operator,
+            "is_admin": False,
+            "can_trailers": False,
+            "can_vehicles": True,
+        },
+    ]
+    for s in seeds:
+        if not db.query(User).filter(User.email == s["email"]).first():
+            user = User(
+                id=uuid.uuid4(),
+                name=s["name"],
+                email=s["email"],
+                hashed_password=hash_password(s["password"]),
+                role=s["role"],
+                is_admin=s["is_admin"],
+                can_trailers=s["can_trailers"],
+                can_vehicles=s["can_vehicles"],
+                is_active=True,
+            )
+            db.add(user)
     db.commit()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
-    # Add new nullable columns to existing tables without breaking data
     with engine.connect() as conn:
+        # Existing migration
         conn.execute(text(
             "ALTER TABLE trailers ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN NOT NULL DEFAULT FALSE"
         ))
+        # User permission flags
+        conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
+        conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS can_trailers BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
+        conn.execute(text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS can_vehicles BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
+        # Migrate existing users
+        conn.execute(text(
+            "UPDATE users SET is_admin=TRUE, can_trailers=TRUE, can_vehicles=TRUE "
+            "WHERE role='admin' AND is_admin=FALSE"
+        ))
+        conn.execute(text(
+            "UPDATE users SET can_trailers=TRUE "
+            "WHERE role='operator' AND can_trailers=FALSE"
+        ))
         conn.commit()
     os.makedirs(settings.UPLOADS_DIR, exist_ok=True)
+    os.makedirs(os.path.join(settings.UPLOADS_DIR, "pdfs"), exist_ok=True)
     db = SessionLocal()
     try:
         seed_db(db)
@@ -72,6 +114,7 @@ app.include_router(trailers.router, prefix="/trailers", tags=["trailers"])
 app.include_router(sections.router, prefix="/trailers", tags=["sections"])
 app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(audit.router, prefix="/audit", tags=["audit"])
+app.include_router(vehicles.router, prefix="/vehicles", tags=["vehicles"])
 
 app.mount("/uploads", StaticFiles(directory=settings.UPLOADS_DIR), name="uploads")
 

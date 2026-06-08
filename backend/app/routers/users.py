@@ -26,12 +26,17 @@ def create_user(
 ):
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=400, detail="Email ya registrado")
+
+    legacy_role = UserRole.admin if body.is_admin else UserRole.operator
     user = User(
         id=uuid.uuid4(),
         name=body.name,
         email=body.email,
         hashed_password=hash_password(body.password),
-        role=body.role,
+        role=legacy_role,
+        is_admin=body.is_admin,
+        can_trailers=body.can_trailers,
+        can_vehicles=body.can_vehicles,
         is_active=True,
     )
     db.add(user)
@@ -43,7 +48,12 @@ def create_user(
         "user_created",
         "user",
         str(user.id),
-        {"email": body.email, "role": body.role},
+        {
+            "email": body.email,
+            "is_admin": body.is_admin,
+            "can_trailers": body.can_trailers,
+            "can_vehicles": body.can_vehicles,
+        },
     )
     return user
 
@@ -61,9 +71,9 @@ def delete_user(
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
-    if user.role == UserRole.admin:
+    if user.is_admin or user.role == UserRole.admin:
         admin_count = db.query(User).filter(
-            User.role == UserRole.admin, User.is_active == True
+            User.is_admin == True, User.is_active == True
         ).count()
         if admin_count <= 1:
             raise HTTPException(status_code=400, detail="No puedes eliminar el único administrador activo")

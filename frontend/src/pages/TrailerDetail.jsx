@@ -84,7 +84,7 @@ export default function TrailerDetail() {
 
   if (loading) {
     return (
-      <Layout title="Cargando..." back="/">
+      <Layout title="Cargando..." back="/trailers">
         <div className="flex justify-center items-center h-64">
           <Loader size={32} className="animate-spin text-[#F5A623]" />
         </div>
@@ -94,7 +94,7 @@ export default function TrailerDetail() {
 
   if (!trailer) {
     return (
-      <Layout title="Error" back="/">
+      <Layout title="Error" back="/trailers">
         <div className="p-8 text-center text-white/40">Trailer no encontrado</div>
       </Layout>
     )
@@ -105,7 +105,7 @@ export default function TrailerDetail() {
     : trailer.reference || `Trailer #${trailer.id.slice(0, 8).toUpperCase()}`
 
   return (
-    <Layout title={title} back="/">
+    <Layout title={title} back="/trailers">
       <div className="px-4 py-4 space-y-4 pb-32">
         {/* Header info */}
         <div className="flex items-center justify-between">

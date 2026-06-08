@@ -7,7 +7,17 @@ export function getUser() {
 }
 
 export function isAdmin() {
-  return getUser()?.role === 'admin'
+  return getUser()?.is_admin === true || getUser()?.role === 'admin'
+}
+
+export function canTrailers() {
+  const u = getUser()
+  return u?.is_admin === true || u?.can_trailers === true || u?.role === 'admin' || u?.role === 'operator'
+}
+
+export function canVehicles() {
+  const u = getUser()
+  return u?.is_admin === true || u?.can_vehicles === true || u?.role === 'admin' || u?.role === 'vehicle_agent'
 }
 
 export function logout() {

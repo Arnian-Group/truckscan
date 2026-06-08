@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, X, UserCheck, Shield, Loader, Trash2 } from 'lucide-react'
+import { Plus, X, UserCheck, Shield, Loader, Trash2, Car, Truck } from 'lucide-react'
 import Layout from '../components/Layout'
 import api from '../lib/api'
 import { getUser } from '../lib/auth'
@@ -9,6 +9,14 @@ function apiError(err) {
   const detail = err.response?.data?.detail
   if (Array.isArray(detail)) return detail.map((e) => e.msg ?? JSON.stringify(e)).join(', ')
   return detail || err.message || 'Error desconocido'
+}
+
+function roleLabel(user) {
+  if (user.is_admin) return 'admin'
+  const tags = []
+  if (user.can_trailers) tags.push('trailers')
+  if (user.can_vehicles) tags.push('vehicles')
+  return tags.join('+') || 'sin acceso'
 }
 
 export default function Users() {
@@ -62,13 +70,14 @@ export default function Users() {
           {users.map((user) => {
             const isSelf = user.id === me?.id
             const confirming = confirmId === user.id
+            const label = roleLabel(user)
 
             return (
               <div key={user.id} className="bg-[#161b27] border border-white/10 p-4 flex items-center gap-3">
                 <div className={`w-10 h-10 flex items-center justify-center shrink-0 ${
-                  user.role === 'admin' ? 'bg-[#F5A62322] text-[#F5A623]' : 'bg-white/5 text-white/50'
+                  user.is_admin ? 'bg-[#F5A62322] text-[#F5A623]' : 'bg-white/5 text-white/50'
                 }`}>
-                  {user.role === 'admin' ? <Shield size={18} /> : <UserCheck size={18} />}
+                  {user.is_admin ? <Shield size={18} /> : <UserCheck size={18} />}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -77,17 +86,14 @@ export default function Users() {
                     {isSelf && <span className="ml-2 text-[10px] font-mono text-[#F5A623] bg-[#F5A62320] px-1.5 py-0.5">TÚ</span>}
                   </div>
                   <div className="text-xs text-white/40 font-mono truncate">{user.email}</div>
+                  <div className="flex gap-1.5 mt-1">
+                    {user.is_admin && <ModBadge color="amber" icon={<Shield size={9} />} label="Admin" />}
+                    {user.can_trailers && <ModBadge color="blue" icon={<Truck size={9} />} label="Carga" />}
+                    {user.can_vehicles && <ModBadge color="purple" icon={<Car size={9} />} label="Vehículos" />}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className={`font-mono text-xs px-2 py-0.5 font-bold uppercase ${
-                    user.role === 'admin'
-                      ? 'bg-[#F5A62322] text-[#F5A623] border border-[#F5A62340]'
-                      : 'bg-white/5 text-white/40 border border-white/10'
-                  }`}>
-                    {user.role}
-                  </span>
-
                   {!isSelf && (
                     <button
                       onClick={() => handleDelete(user.id)}
@@ -98,14 +104,7 @@ export default function Users() {
                           : 'text-white/20 hover:text-red-400 hover:bg-red-400/10'
                       }`}
                     >
-                      {confirming ? (
-                        <>
-                          <Trash2 size={12} />
-                          ¿CONFIRMAR?
-                        </>
-                      ) : (
-                        <Trash2 size={15} />
-                      )}
+                      {confirming ? (<><Trash2 size={12} />¿CONFIRMAR?</>) : <Trash2 size={15} />}
                     </button>
                   )}
                 </div>
@@ -115,7 +114,6 @@ export default function Users() {
         </div>
       )}
 
-      {/* FAB */}
       <button
         onClick={() => setShowCreate(true)}
         className="fixed bottom-20 right-4 w-14 h-14 bg-[#F5A623] text-[#0f1117] flex items-center justify-center shadow-lg hover:bg-[#e8961f] active:scale-95 transition-all z-30"
@@ -136,20 +134,45 @@ export default function Users() {
   )
 }
 
+function ModBadge({ color, icon, label }) {
+  const colors = {
+    amber: 'bg-[#F5A62215] text-[#F5A623] border-[#F5A62330]',
+    blue: 'bg-blue-400/10 text-blue-400 border-blue-400/20',
+    purple: 'bg-purple-400/10 text-purple-400 border-purple-400/20',
+  }
+  return (
+    <span className={`flex items-center gap-1 px-1.5 py-0.5 border font-mono text-[9px] font-bold ${colors[color]}`}>
+      {icon}{label}
+    </span>
+  )
+}
+
 function CreateUserModal({ onClose, onCreated }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState('operator')
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [canTrailers, setCanTrailers] = useState(false)
+  const [canVehicles, setCanVehicles] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  function handleAdminToggle(val) {
+    setIsAdmin(val)
+    if (val) { setCanTrailers(true); setCanVehicles(true) }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      const { data } = await api.post('/users', { name, email, password, role })
+      const { data } = await api.post('/users', {
+        name, email, password,
+        is_admin: isAdmin,
+        can_trailers: isAdmin || canTrailers,
+        can_vehicles: isAdmin || canVehicles,
+      })
       onCreated(data)
     } catch (err) {
       const detail = err.response?.data?.detail
@@ -162,16 +185,12 @@ function CreateUserModal({ onClose, onCreated }) {
   return (
     <motion.div
       className="fixed inset-0 z-50 flex flex-col justify-end"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
     >
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <motion.div
         className="relative bg-[#161b27] border-t border-white/10 rounded-t-2xl p-6"
-        initial={{ y: '100%' }}
-        animate={{ y: 0 }}
-        exit={{ y: '100%' }}
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
       >
         <div className="flex items-center justify-between mb-6">
@@ -187,34 +206,38 @@ function CreateUserModal({ onClose, onCreated }) {
           <Field label="Contraseña" type="password" value={password} onChange={setPassword} required />
 
           <div>
-            <label className="block text-xs font-mono text-white/50 uppercase tracking-wider mb-1.5">Rol</label>
-            <div className="flex gap-2">
-              {['operator', 'admin'].map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setRole(r)}
-                  className={`flex-1 py-3 font-mono font-bold text-sm uppercase min-h-[48px] transition-colors ${
-                    role === r
-                      ? 'bg-[#F5A623] text-[#0f1117]'
-                      : 'bg-[#1e2535] text-white/50 border border-white/10 hover:text-white'
-                  }`}
-                >
-                  {r}
-                </button>
-              ))}
+            <label className="block text-xs font-mono text-white/50 uppercase tracking-wider mb-2">Permisos</label>
+            <div className="space-y-2">
+              <CheckRow
+                checked={isAdmin}
+                onChange={handleAdminToggle}
+                icon={<Shield size={16} className="text-[#F5A623]" />}
+                label="Admin — Acceso total al sistema"
+              />
+              <CheckRow
+                checked={isAdmin || canTrailers}
+                onChange={v => { if (!isAdmin) setCanTrailers(v) }}
+                disabled={isAdmin}
+                icon={<Truck size={16} className="text-blue-400" />}
+                label="Módulo de Carga (trailers)"
+              />
+              <CheckRow
+                checked={isAdmin || canVehicles}
+                onChange={v => { if (!isAdmin) setCanVehicles(v) }}
+                disabled={isAdmin}
+                icon={<Car size={16} className="text-purple-400" />}
+                label="Módulo de Vehículos (receiving)"
+              />
             </div>
           </div>
 
           {error && (
-            <p className="text-red-400 text-sm font-mono border border-red-400/30 bg-red-400/10 px-3 py-2">
-              {error}
-            </p>
+            <p className="text-red-400 text-sm font-mono border border-red-400/30 bg-red-400/10 px-3 py-2">{error}</p>
           )}
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (!isAdmin && !canTrailers && !canVehicles)}
             className="w-full bg-[#F5A623] text-[#0f1117] font-bold text-base py-4 min-h-[56px] hover:bg-[#e8961f] transition-colors disabled:opacity-60"
           >
             {loading ? 'Creando...' : 'Crear Usuario'}
@@ -222,6 +245,26 @@ function CreateUserModal({ onClose, onCreated }) {
         </form>
       </motion.div>
     </motion.div>
+  )
+}
+
+function CheckRow({ checked, onChange, icon, label, disabled = false }) {
+  return (
+    <button
+      type="button"
+      onClick={() => !disabled && onChange(!checked)}
+      className={`w-full flex items-center gap-3 p-3 border transition-all ${
+        checked
+          ? 'bg-white/5 border-white/20 text-white'
+          : 'border-white/5 text-white/40 hover:text-white/70 hover:border-white/10'
+      } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+    >
+      <div className={`w-4 h-4 border-2 flex items-center justify-center flex-shrink-0 ${checked ? 'border-[#F5A623] bg-[#F5A623]' : 'border-white/20'}`}>
+        {checked && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L4 7L9 1" stroke="#0f1117" strokeWidth="2" strokeLinecap="round"/></svg>}
+      </div>
+      {icon}
+      <span className="text-sm text-left">{label}</span>
+    </button>
   )
 }
 

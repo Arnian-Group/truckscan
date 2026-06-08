@@ -1,8 +1,8 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, model_validator
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, date
 from uuid import UUID
-from .models import UserRole, TrailerStatus, SectionStatus
+from .models import UserRole, TrailerStatus, SectionStatus, VehicleType, InspectionStatus
 
 
 # Auth
@@ -21,18 +21,35 @@ class UserCreate(BaseModel):
     name: str
     email: EmailStr
     password: str
-    role: UserRole = UserRole.operator
+    is_admin: bool = False
+    can_trailers: bool = False
+    can_vehicles: bool = False
 
 
 class UserOut(BaseModel):
     id: UUID
     name: str
     email: str
-    role: UserRole
+    is_admin: bool = False
+    can_trailers: bool = False
+    can_vehicles: bool = False
+    role: str = "operator"
     is_active: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="after")
+    def compute_role(self) -> "UserOut":
+        if self.is_admin:
+            self.role = "admin"
+        elif self.can_trailers and self.can_vehicles:
+            self.role = "multi"
+        elif self.can_vehicles:
+            self.role = "vehicle_agent"
+        else:
+            self.role = "operator"
+        return self
 
 
 # Section
@@ -50,7 +67,6 @@ class SectionOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# Section
 class SectionDoneBody(BaseModel):
     notes: Optional[str] = None
 
@@ -107,3 +123,119 @@ class PaginatedResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+# Vehicle
+class VehicleIntakeCreate(BaseModel):
+    vehicle_type: VehicleType
+    fecha: Optional[date] = None
+    city: Optional[str] = None
+    nombre: Optional[str] = None
+    id_cliente: Optional[str] = None
+    year: Optional[int] = None
+    make: Optional[str] = None
+    model: Optional[str] = None
+    color: Optional[str] = None
+    placas: Optional[str] = None
+    odometer: Optional[int] = None
+    vin: Optional[str] = None
+    gasolina: Optional[str] = None
+    notas: Optional[str] = None
+    checklist: Optional[dict] = None
+
+
+class VehicleIntakeUpdate(BaseModel):
+    fecha: Optional[date] = None
+    city: Optional[str] = None
+    nombre: Optional[str] = None
+    id_cliente: Optional[str] = None
+    year: Optional[int] = None
+    make: Optional[str] = None
+    model: Optional[str] = None
+    color: Optional[str] = None
+    placas: Optional[str] = None
+    odometer: Optional[int] = None
+    vin: Optional[str] = None
+    gasolina: Optional[str] = None
+    notas: Optional[str] = None
+    checklist: Optional[dict] = None
+
+
+class SignBody(BaseModel):
+    firma_origen: str
+    nombre_firma_origen: Optional[str] = None
+    fecha_firma_origen: Optional[date] = None
+    firma_destino: Optional[str] = None
+    nombre_firma_destino: Optional[str] = None
+    fecha_firma_destino: Optional[date] = None
+
+
+class VehicleDamageUpdate(BaseModel):
+    damage_type: Optional[str] = None
+    description: Optional[str] = None
+
+
+class VehicleDamageOut(BaseModel):
+    id: UUID
+    inspection_id: UUID
+    view: str
+    x_pct: float
+    y_pct: float
+    damage_type: str
+    description: Optional[str]
+    photos: List[str]
+    created_by: Optional[UUID]
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class VehicleInspectionOut(BaseModel):
+    id: UUID
+    vehicle_type: VehicleType
+    status: InspectionStatus
+    fecha: Optional[date]
+    city: Optional[str]
+    nombre: Optional[str]
+    id_cliente: Optional[str]
+    year: Optional[int]
+    make: Optional[str]
+    model: Optional[str]
+    color: Optional[str]
+    placas: Optional[str]
+    odometer: Optional[int]
+    vin: Optional[str]
+    gasolina: Optional[str]
+    notas: Optional[str]
+    checklist: Optional[dict]
+    firma_origen: Optional[str]
+    nombre_firma_origen: Optional[str]
+    fecha_firma_origen: Optional[date]
+    firma_destino: Optional[str]
+    nombre_firma_destino: Optional[str]
+    fecha_firma_destino: Optional[date]
+    liability_pdf_path: Optional[str]
+    full_report_pdf_path: Optional[str]
+    created_by: Optional[UUID]
+    created_at: datetime
+    updated_at: Optional[datetime]
+    damages: List[VehicleDamageOut] = []
+
+    model_config = {"from_attributes": True}
+
+
+class VehicleInspectionListItem(BaseModel):
+    id: UUID
+    vehicle_type: VehicleType
+    status: InspectionStatus
+    fecha: Optional[date]
+    city: Optional[str]
+    nombre: Optional[str]
+    year: Optional[int]
+    make: Optional[str]
+    model: Optional[str]
+    color: Optional[str]
+    created_at: datetime
+    updated_at: Optional[datetime]
+
+    model_config = {"from_attributes": True}

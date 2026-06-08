@@ -1,11 +1,13 @@
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { logout, getUser, isAdmin } from '../lib/auth'
-import { Truck, List, ClipboardList, Users, LogOut } from 'lucide-react'
+import { logout, getUser, isAdmin, canTrailers, canVehicles } from '../lib/auth'
+import { Truck, List, ClipboardList, Users, LogOut, Car, LayoutDashboard } from 'lucide-react'
 
 export default function Layout({ children, title, back }) {
   const navigate = useNavigate()
   const location = useLocation()
   const user = getUser()
+  const showVehicles = canVehicles()
+  const showTrailers = canTrailers()
 
   function handleLogout() {
     logout()
@@ -47,7 +49,15 @@ export default function Layout({ children, title, back }) {
 
       {/* Bottom nav */}
       <nav className="bg-[#161b27] border-t border-white/10 flex sticky bottom-0 z-40 pb-safe">
-        <NavItem to="/" icon={<List size={20} />} label="Trailers" active={location.pathname === '/'} />
+        {(showTrailers && showVehicles) || isAdmin() ? (
+          <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Inicio" active={location.pathname === '/'} />
+        ) : null}
+        {showTrailers && (
+          <NavItem to="/trailers" icon={<List size={20} />} label="Carga" active={location.pathname.startsWith('/trailers')} />
+        )}
+        {showVehicles && (
+          <NavItem to="/vehicles" icon={<Car size={20} />} label="Vehículos" active={location.pathname.startsWith('/vehicles')} />
+        )}
         {isAdmin() && (
           <>
             <NavItem to="/audit" icon={<ClipboardList size={20} />} label="Audit" active={location.pathname === '/audit'} />
