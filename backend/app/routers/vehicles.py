@@ -783,8 +783,9 @@ def get_report_pdf(
     scheme = request.headers.get("x-forwarded-proto", "https")
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
     base_url = f"{scheme}://{host}" if host else None
-    file_path = _generate_full_report_pdf(insp, base_url=base_url, token=token)
-    return FileResponse(file_path, media_type="application/pdf",
+    _generate_full_report_pdf(insp, base_url=base_url, token=token)
+    fs_path = os.path.join(settings.UPLOADS_DIR, "pdfs", f"{insp.id}_report.pdf")
+    return FileResponse(fs_path, media_type="application/pdf",
                         filename=f"report_{insp.id}.pdf")
 
 
