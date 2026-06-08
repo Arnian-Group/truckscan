@@ -105,25 +105,20 @@ export default function VehicleInspection() {
   const totalDamages = insp?.damages?.length || 0
   const viewsWithDamages = new Set((insp?.damages || []).map(d => d.view))
 
-  async function handlePDF(download = false) {
-    try {
-      const resp = await api.get(`/vehicles/${id}/liability-pdf`, { responseType: 'blob' })
-      const url = URL.createObjectURL(new Blob([resp.data], { type: 'application/pdf' }))
+  function handlePDF(download = false) {
+    const token = localStorage.getItem('token')
+    const base = import.meta.env.VITE_API_URL || ''
+    const url = `${base}/vehicles/${id}/liability-pdf?token=${encodeURIComponent(token)}`
+    if (download) {
+      const slug = [insp?.nombre, insp?.placas, insp?.fecha].filter(Boolean).join('_').replace(/\s+/g, '-') || id
       const a = document.createElement('a')
       a.href = url
-      if (download) {
-        const slug = [insp?.nombre, insp?.placas, insp?.fecha].filter(Boolean).join('_').replace(/\s+/g, '-') || id
-        a.download = `descargo_${slug}.pdf`
-      } else {
-        a.target = '_blank'
-        a.rel = 'noopener'
-      }
+      a.download = `descargo_${slug}.pdf`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
-      setTimeout(() => URL.revokeObjectURL(url), 10000)
-    } catch {
-      alert('Error al cargar el PDF')
+    } else {
+      window.open(url, '_blank', 'noopener')
     }
   }
 

@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from .database import get_db
@@ -11,6 +11,7 @@ from .config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -62,3 +63,25 @@ def require_vehicle_agent(current_user: User = Depends(get_current_user)) -> Use
     if not (current_user.is_admin or current_user.can_vehicles):
         raise HTTPException(status_code=403, detail="Vehicle module access required")
     return current_user
+
+
+def get_current_user_download(
+    header_token: Optional[str] = Depends(oauth2_scheme_optional),
+    query_token: Optional[str] = Query(default=None, alias="token"),
+    db: Session = Depends(get_db),
+) -> User:
+    raw = query_token or header_token
+    if not raw:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    credentials_exception = HTTPException(status_code=401, detail="Could not validate credentials")
+    try:
+        payload = jwt.decode(raw, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None or not user.is_active:
+        raise credentials_exception
+    return user

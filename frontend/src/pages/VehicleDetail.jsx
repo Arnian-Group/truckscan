@@ -97,24 +97,19 @@ function PhotoLightbox({ photos, startIndex, onClose }) {
   )
 }
 
-async function openPDF(endpoint, filename = null) {
-  try {
-    const resp = await api.get(endpoint, { responseType: 'blob' })
-    const url = URL.createObjectURL(new Blob([resp.data], { type: 'application/pdf' }))
+function openPDF(endpoint, filename = null) {
+  const token = localStorage.getItem('token')
+  const base = import.meta.env.VITE_API_URL || ''
+  const url = `${base}${endpoint}?token=${encodeURIComponent(token)}`
+  if (filename) {
     const a = document.createElement('a')
     a.href = url
-    if (filename) {
-      a.download = filename
-    } else {
-      a.target = '_blank'
-      a.rel = 'noopener'
-    }
+    a.download = filename
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
-    setTimeout(() => URL.revokeObjectURL(url), 10000)
-  } catch {
-    alert('Error al cargar el PDF')
+  } else {
+    window.open(url, '_blank', 'noopener')
   }
 }
 

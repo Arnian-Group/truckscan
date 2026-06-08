@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
 from ..models import User, VehicleInspection, VehicleDamage, InspectionStatus
-from ..auth import get_current_user, require_vehicle_agent, require_admin
+from ..auth import get_current_user, require_vehicle_agent, require_admin, get_current_user_download
 from ..schemas import (
     VehicleIntakeCreate, VehicleIntakeUpdate, SignBody,
     VehicleDamageUpdate, VehicleDamageOut,
@@ -652,7 +652,7 @@ def complete_inspection(
 def get_liability_pdf(
     inspection_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_vehicle_agent),
+    current_user: User = Depends(get_current_user_download),
 ):
     insp = _get_inspection(db, inspection_id)
     if not insp.liability_pdf_path:
@@ -670,7 +670,7 @@ def get_liability_pdf(
 def get_report_pdf(
     inspection_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_vehicle_agent),
+    current_user: User = Depends(get_current_user_download),
 ):
     insp = _get_inspection(db, inspection_id)
     if not insp.full_report_pdf_path:
