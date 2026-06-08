@@ -265,7 +265,7 @@ export default function VehicleDetail() {
               {insp.firma_origen && (
                 <div className="bg-[#161b27] border border-white/10 p-3">
                   <p className="text-[10px] font-mono text-white/30 mb-2">ORIGEN</p>
-                  <img src={insp.firma_origen} alt="Firma origen" className="w-full h-16 object-contain bg-[#1e2535]" />
+                  <img src={insp.firma_origen} alt="Firma origen" className="w-full h-16 object-contain bg-white" />
                   {insp.nombre_firma_origen && <p className="text-xs text-white/50 mt-1.5 truncate">{insp.nombre_firma_origen}</p>}
                   {insp.firma_hash_origen && (
                     <div className="flex items-center gap-1.5 mt-2 bg-[#0d1520] border border-[#22C55E]/20 px-2 py-1">
@@ -280,7 +280,7 @@ export default function VehicleDetail() {
               {insp.firma_destino && (
                 <div className="bg-[#161b27] border border-white/10 p-3">
                   <p className="text-[10px] font-mono text-white/30 mb-2">DESTINO</p>
-                  <img src={insp.firma_destino} alt="Firma destino" className="w-full h-16 object-contain bg-[#1e2535]" />
+                  <img src={insp.firma_destino} alt="Firma destino" className="w-full h-16 object-contain bg-white" />
                   {insp.nombre_firma_destino && <p className="text-xs text-white/50 mt-1.5 truncate">{insp.nombre_firma_destino}</p>}
                   {insp.firma_hash_destino && (
                     <div className="flex items-center gap-1.5 mt-2 bg-[#0d1520] border border-[#22C55E]/20 px-2 py-1">

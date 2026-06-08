@@ -17,8 +17,10 @@ export default function SignatureCanvas({ label, onSave, onClear }) {
     canvas.style.height = '150px'
     const ctx = canvas.getContext('2d')
     ctx.scale(dpr, dpr)
-    ctx.strokeStyle = '#ffffff'
-    ctx.lineWidth = 1.8
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, w, 150)
+    ctx.strokeStyle = '#1a1a1a'
+    ctx.lineWidth = 2
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctxRef.current = ctx
@@ -62,8 +64,9 @@ export default function SignatureCanvas({ label, onSave, onClear }) {
   function clear() {
     const canvas = canvasRef.current
     if (!canvas) return
-    const ctx = initCtx()
-    ctx.clearRect(0, 0, canvas.offsetWidth, 150)
+    const ctx = ctxRef.current || initCtx()
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.offsetWidth, 150)
     setHasSignature(false)
     onClear?.()
   }
@@ -83,7 +86,7 @@ export default function SignatureCanvas({ label, onSave, onClear }) {
       )}
       <canvas
         ref={canvasRef}
-        className="w-full bg-[#1e2535] border border-white/10 touch-none block"
+        className="w-full bg-white border border-white/10 touch-none block"
         style={{ height: '150px', cursor: 'crosshair' }}
         onMouseDown={startDraw}
         onMouseMove={draw}
