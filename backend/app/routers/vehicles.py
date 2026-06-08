@@ -80,20 +80,26 @@ _GRAY_LINE = "#C5CDD9"
 
 
 def _get_logo_path() -> str:
-    """Download logo from CDN once and cache in uploads dir. 4s timeout."""
+    """Return cached logo path, or '' if not yet downloaded."""
+    cached = os.path.join(settings.UPLOADS_DIR, "arnian_logo.png")
+    return cached if os.path.isfile(cached) else ""
+
+
+def _prefetch_logo() -> None:
+    """Download logo at startup (best-effort, never raises)."""
     import urllib.request
     cached = os.path.join(settings.UPLOADS_DIR, "arnian_logo.png")
     if os.path.isfile(cached):
-        return cached
+        return
     try:
         req = urllib.request.Request(_LOGO_URL, headers={"User-Agent": "TruckScan/1.0"})
-        with urllib.request.urlopen(req, timeout=4) as resp:
+        with urllib.request.urlopen(req, timeout=8) as resp:
             data = resp.read()
         with open(cached, "wb") as f:
             f.write(data)
-        return cached
-    except Exception:
-        return ""
+        print("[logo] downloaded OK")
+    except Exception as e:
+        print(f"[logo] prefetch failed (PDF will use text fallback): {e}")
 
 
 def _generate_liability_pdf(insp: VehicleInspection) -> str:
@@ -1024,11 +1030,16 @@ def get_report_pdf(
 ):
     insp = _get_inspection(db, inspection_id)
     if insp.status != InspectionStatus.completed:
-        raise HTTPException(status_code=404, detail="PDF no disponible aún")
+        raise HTTPException(status_code=400, detail="La inspección no está completada")
     scheme = request.headers.get("x-forwarded-proto", "https")
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
     base_url = f"{scheme}://{host}" if host else None
-    pdf_path = _generate_full_report_pdf(insp, base_url=base_url, token=token)
+    try:
+        pdf_path = _generate_full_report_pdf(insp, base_url=base_url, token=token)
+    except Exception as e:
+        import traceback
+        print(f"[PDF] report generation error: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Error generando PDF: {e}")
     if not insp.full_report_pdf_path:
         insp.full_report_pdf_path = pdf_path
         db.commit()
@@ -1107,12 +1118,12 @@ def get_mercancias_pdf(
 ):
     insp = _get_inspection(db, inspection_id)
     fs_path = os.path.join(settings.UPLOADS_DIR, "pdfs", f"{insp.id}_mercancias.pdf")
-    if not os.path.exists(fs_path):
-        if not insp.full_report_pdf_path:
-            raise HTTPException(status_code=404, detail="PDF no disponible aún")
+    try:
         _generate_mercancias_pdf(insp)
-    if not os.path.exists(fs_path):
-        raise HTTPException(status_code=404, detail="Archivo PDF no encontrado")
+    except Exception as e:
+        import traceback
+        print(f"[PDF] mercancias generation error: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Error generando PDF: {e}")
     return FileResponse(fs_path, media_type="application/pdf",
                         filename=f"recibo_{insp.folio or insp.id}.pdf")
 

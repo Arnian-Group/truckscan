@@ -11,6 +11,7 @@ from .models import User, Trailer, Section, UserRole, TrailerStatus, SectionStat
 from .auth import hash_password
 from .config import settings
 from .routers import auth, trailers, sections, users, audit, vehicles, uploads
+from .routers.vehicles import _prefetch_logo
 
 
 def seed_db(db: Session):
@@ -118,6 +119,7 @@ async def lifespan(app: FastAPI):
         conn.commit()
     os.makedirs(settings.UPLOADS_DIR, exist_ok=True)
     os.makedirs(os.path.join(settings.UPLOADS_DIR, "pdfs"), exist_ok=True)
+    _prefetch_logo()
     db = SessionLocal()
     try:
         seed_db(db)
