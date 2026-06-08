@@ -102,6 +102,18 @@ def _prefetch_logo() -> None:
         print(f"[logo] prefetch failed (PDF will use text fallback): {e}")
 
 
+def _make_logo_image(path: str, max_w_in: float = 1.8, max_h_in: float = 0.8):
+    from reportlab.lib.units import inch
+    from reportlab.platypus import Image
+    img = Image(path)
+    natural_w = img.imageWidth or 1
+    natural_h = img.imageHeight or 1
+    scale = min(max_w_in * inch / natural_w, max_h_in * inch / natural_h)
+    img.drawWidth = natural_w * scale
+    img.drawHeight = natural_h * scale
+    return img
+
+
 def _generate_liability_pdf(insp: VehicleInspection) -> str:
     from reportlab.lib.pagesizes import letter
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -135,7 +147,7 @@ def _generate_liability_pdf(insp: VehicleInspection) -> str:
     header_items = []
     _logo = _get_logo_path()
     if _logo:
-        header_items.append(Image(_logo, width=1.8*inch, height=0.6*inch))
+        header_items.append(_make_logo_image(_logo))
     else:
         header_items.append(Paragraph("ARNIAN GROUP", ParagraphStyle("t", parent=styles["Title"], fontSize=16)))
     header_items.append(Paragraph(
@@ -339,7 +351,7 @@ def _generate_full_report_pdf(insp: VehicleInspection, base_url: Optional[str] =
     header_items = []
     _logo = _get_logo_path()
     if _logo:
-        header_items.append(Image(_logo, width=1.8*inch, height=0.6*inch))
+        header_items.append(_make_logo_image(_logo))
     else:
         header_items.append(Paragraph("ARNIAN GROUP", ParagraphStyle("t", parent=styles["Title"], fontSize=14)))
     header_items.append(Paragraph(header_text, sub_style))
@@ -569,7 +581,7 @@ def _generate_mercancias_pdf(insp: VehicleInspection) -> str:
     header_items = []
     _logo = _get_logo_path()
     if _logo:
-        header_items.append(Image(_logo, width=1.8*inch, height=0.6*inch))
+        header_items.append(_make_logo_image(_logo))
     else:
         header_items.append(Paragraph("ARNIAN GROUP", ParagraphStyle("t", parent=styles["Title"], fontSize=14)))
     header_items.append(Paragraph(
