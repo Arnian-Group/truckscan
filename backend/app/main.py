@@ -112,6 +112,9 @@ async def lifespan(app: FastAPI):
         conn.execute(text(
             "ALTER TABLE vehicle_inspections ADD COLUMN IF NOT EXISTS mercancias_fotos JSON"
         ))
+        conn.execute(text(
+            "ALTER TYPE vehicletype ADD VALUE IF NOT EXISTS 'mercancias'"
+        ))
         conn.commit()
     os.makedirs(settings.UPLOADS_DIR, exist_ok=True)
     os.makedirs(os.path.join(settings.UPLOADS_DIR, "pdfs"), exist_ok=True)

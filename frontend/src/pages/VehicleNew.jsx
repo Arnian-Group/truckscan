@@ -35,9 +35,9 @@ export default function VehicleNew() {
   }
 
   return (
-    <Layout title="Nueva Inspección" back="/vehicles">
+    <Layout title="Nuevo Recibo" back="/vehicles">
       <div className="px-4 py-4 pb-24">
-        <p className="text-white/40 text-sm font-mono mb-4">Selecciona el tipo de vehículo</p>
+        <p className="text-white/40 text-sm font-mono mb-4">Selecciona el tipo de recibo</p>
         <div className="grid grid-cols-2 gap-3">
           {TYPES.map(({ id, label, desc, icon }) => (
             <button

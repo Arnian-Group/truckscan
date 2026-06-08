@@ -58,7 +58,7 @@ export default function Layout({ children, title, back }) {
           <NavItem to="/trailers" icon={<List size={20} />} label="Carga" active={location.pathname.startsWith('/trailers')} />
         )}
         {showVehicles && (
-          <NavItem to="/vehicles" icon={<Car size={20} />} label="Vehículos" active={location.pathname.startsWith('/vehicles')} />
+          <NavItem to="/vehicles" icon={<Car size={20} />} label="Recibos" active={location.pathname.startsWith('/vehicles')} />
         )}
         {isAdmin() && (
           <>

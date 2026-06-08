@@ -140,7 +140,7 @@ export default function VehicleList() {
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   return (
-    <Layout title="Vehículos">
+    <Layout title="Recibos">
       <div className="px-4 py-3 flex gap-2 border-b border-white/5 overflow-x-auto">
         {['', 'intake', 'intake_complete', 'in_inspection', 'completed'].map(f => (
           <button
