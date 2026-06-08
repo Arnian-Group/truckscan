@@ -146,7 +146,7 @@ function ReviewModal({ form, fotos, insp, onClose, onSubmit, submitting }) {
             </h2>
             <div className="space-y-2">
               <Input value={nombreEntrega} onChange={setNombreEntrega} placeholder="Nombre de quien entrega" />
-              <SignatureCanvas onCapture={setFirmaEntrega} />
+              <SignatureCanvas onSave={setFirmaEntrega} />
             </div>
           </section>
 
@@ -156,7 +156,7 @@ function ReviewModal({ form, fotos, insp, onClose, onSubmit, submitting }) {
             </h2>
             <div className="space-y-2">
               <Input value={nombreRecibe} onChange={setNombreRecibe} placeholder="Nombre de quien recibe" />
-              <SignatureCanvas onCapture={setFirmaRecibe} />
+              <SignatureCanvas onSave={setFirmaRecibe} />
             </div>
           </section>
 
