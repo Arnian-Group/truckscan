@@ -579,8 +579,8 @@ def _generate_mercancias_pdf(insp: VehicleInspection) -> str:
     story.append(Spacer(1, 0.15*inch))
 
     info_data = [
-        ["Folio", cell(insp.folio), "Fecha", cell(insp.fecha), "Ciudad", cell(insp.city)],
-        ["Entregado por", cell(insp.nombre_entrega), "Recibido por", cell(insp.nombre), "", ""],
+        ["Folio", cell(insp.folio), "Fecha / Date", cell(insp.fecha), "Ciudad / City", cell(insp.city)],
+        ["Entregado por / Delivered by", cell(insp.nombre_entrega), "Recibido por / Received by", cell(insp.nombre), "", ""],
     ]
     info_table = Table(info_data, colWidths=[1.1*inch, 1.8*inch, 0.9*inch, 1.4*inch, 0.8*inch, 1*inch])
     info_table.setStyle(TableStyle([
@@ -631,7 +631,7 @@ def _generate_mercancias_pdf(insp: VehicleInspection) -> str:
     foto_count = len(insp.mercancias_fotos or [])
     if foto_count:
         story.append(Paragraph(
-            f"EVIDENCIA FOTOGRÁFICA: {foto_count} foto(s) registrada(s)", label_style
+            f"EVIDENCIA FOTOGRÁFICA / PHOTO EVIDENCE: {foto_count} foto(s) registrada(s) / photo(s) on file", label_style
         ))
         story.append(Spacer(1, 0.15*inch))
 
@@ -655,7 +655,7 @@ def _generate_mercancias_pdf(insp: VehicleInspection) -> str:
             buf = _decode_sig(sig_b64)
             if buf:
                 items.append(Image(buf, width=2.5*inch, height=0.8*inch))
-        items.append(Paragraph(f"Nombre: {name_field or '_______________'}", name_style))
+        items.append(Paragraph(f"Nombre / Name: {name_field or '_______________'}", name_style))
         sig_row.append(items)
 
     sig_table = Table(
