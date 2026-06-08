@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, FileText, Printer, Download, CheckSquare, Square, ExternalLink, Trash2, Shield } from 'lucide-react'
+import { Loader, FileText, Printer, Download, CheckSquare, Square, ExternalLink, Trash2, Shield, ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import api from '../lib/api'
 import { isAdmin } from '../lib/auth'
@@ -26,6 +27,75 @@ const DAMAGE_COLORS = {
   cracked: '#8B5CF6', missing: '#6B7280', other: '#F5A623',
 }
 
+
+function PhotoLightbox({ photos, startIndex, onClose }) {
+  const [idx, setIdx] = useState(startIndex)
+  const prev = useCallback(() => setIdx(i => (i - 1 + photos.length) % photos.length), [photos.length])
+  const next = useCallback(() => setIdx(i => (i + 1) % photos.length), [photos.length])
+
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'ArrowRight') next()
+      else if (e.key === 'ArrowLeft') prev()
+      else if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [next, prev, onClose])
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex flex-col bg-black"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      onClick={onClose}
+    >
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-4 py-3 shrink-0" onClick={e => e.stopPropagation()}>
+        <span className="text-white/50 text-sm font-mono">{idx + 1} / {photos.length}</span>
+        <button onClick={onClose} className="min-w-[44px] min-h-[44px] flex items-center justify-center text-white/60 hover:text-white">
+          <X size={22} />
+        </button>
+      </div>
+
+      {/* Image */}
+      <div className="flex-1 flex items-center justify-center relative overflow-hidden" onClick={e => e.stopPropagation()}>
+        <motion.img
+          key={idx}
+          src={photos[idx]}
+          alt=""
+          className="max-w-full max-h-full object-contain select-none px-12"
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.12 }}
+        />
+        {photos.length > 1 && (
+          <>
+            <button onClick={prev}
+              className="absolute left-0 top-0 bottom-0 w-12 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-colors">
+              <ChevronLeft size={26} />
+            </button>
+            <button onClick={next}
+              className="absolute right-0 top-0 bottom-0 w-12 flex items-center justify-center text-white/40 hover:text-white hover:bg-white/5 transition-colors">
+              <ChevronRight size={26} />
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Thumbnail strip */}
+      {photos.length > 1 && (
+        <div className="flex gap-1.5 px-4 py-3 overflow-x-auto shrink-0" onClick={e => e.stopPropagation()}>
+          {photos.map((p, i) => (
+            <button key={i} onClick={() => setIdx(i)}
+              className={`shrink-0 w-14 h-14 border-2 transition-all ${i === idx ? 'border-[#F5A623]' : 'border-transparent opacity-40 hover:opacity-70'}`}>
+              <img src={p} alt="" className="w-full h-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  )
+}
 
 async function openPDF(endpoint, filename = null) {
   try {
@@ -57,7 +127,12 @@ export default function VehicleDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [checklist, setChecklist] = useState({})
   const [savingChecklist, setSavingChecklist] = useState(false)
+  const [lightbox, setLightbox] = useState(null)
   const admin = isAdmin()
+
+  const openPhoto = useCallback((photos, i) => {
+    setLightbox({ photos, startIndex: i })
+  }, [])
 
   useEffect(() => {
     api.get(`/vehicles/${id}`).then(({ data }) => {
@@ -156,9 +231,17 @@ export default function VehicleDetail() {
                   {d.description && <p className="text-xs text-white/50 pl-5">{d.description}</p>}
                   {d.photos?.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2 pl-5">
-                      {d.photos.map((p, i) => (
-                        <img key={i} src={STATIC_BASE + p} alt="" className="w-16 h-16 object-cover border border-white/10" />
-                      ))}
+                      {d.photos.map((p, i) => {
+                        const all = d.photos.map(x => STATIC_BASE + x)
+                        return (
+                          <button key={i} onClick={() => openPhoto(all, i)} className="relative group">
+                            <img src={STATIC_BASE + p} alt="" className="w-16 h-16 object-cover border border-white/10 group-hover:border-[#F5A623]/60 transition-colors" />
+                            <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
+                              <ZoomIn size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </span>
+                          </button>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -200,9 +283,17 @@ export default function VehicleDetail() {
                         {d.description && <p className="text-xs text-white/50 pl-5">{d.description}</p>}
                         {d.photos?.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2 pl-5">
-                            {d.photos.map((p, i) => (
-                              <img key={i} src={STATIC_BASE + p} alt="" className="w-16 h-16 object-cover border border-white/10" />
-                            ))}
+                            {d.photos.map((p, i) => {
+                              const all = d.photos.map(x => STATIC_BASE + x)
+                              return (
+                                <button key={i} onClick={() => openPhoto(all, i)} className="relative group">
+                                  <img src={STATIC_BASE + p} alt="" className="w-16 h-16 object-cover border border-white/10 group-hover:border-[#F5A623]/60 transition-colors" />
+                                  <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
+                                    <ZoomIn size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </span>
+                                </button>
+                              )
+                            })}
                           </div>
                         )}
                       </div>
@@ -371,6 +462,16 @@ export default function VehicleDetail() {
           </section>
         )}
       </div>
+
+      <AnimatePresence>
+        {lightbox && (
+          <PhotoLightbox
+            photos={lightbox.photos}
+            startIndex={lightbox.startIndex}
+            onClose={() => setLightbox(null)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Confirm archive modal */}
       {confirmDelete && (
