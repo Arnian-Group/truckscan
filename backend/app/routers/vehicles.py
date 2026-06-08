@@ -6,7 +6,7 @@ from datetime import date
 from io import BytesIO
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
 
@@ -237,7 +237,7 @@ def _generate_liability_pdf(insp: VehicleInspection) -> str:
     return f"/uploads/pdfs/{insp.id}_liability.pdf"
 
 
-def _generate_full_report_pdf(insp: VehicleInspection) -> str:
+def _generate_full_report_pdf(insp: VehicleInspection, base_url: Optional[str] = None, token: Optional[str] = None) -> str:
     from reportlab.lib.pagesizes import letter
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
@@ -261,6 +261,8 @@ def _generate_full_report_pdf(insp: VehicleInspection) -> str:
                                  fontSize=8, textColor=colors.HexColor("#777777"),
                                  fontName="Helvetica-Bold")
     body_style = ParagraphStyle("body", parent=styles["Normal"], fontSize=8, spaceAfter=4)
+    link_style = ParagraphStyle("link", parent=styles["Normal"], fontSize=8,
+                                textColor=colors.HexColor("#1a6fc4"), spaceAfter=4)
     title_style = ParagraphStyle("title", parent=styles["Title"], fontSize=16, spaceAfter=4)
     sub_style = ParagraphStyle("sub", parent=styles["Normal"], fontSize=10,
                                textColor=colors.HexColor("#555555"), spaceAfter=12)
@@ -306,14 +308,22 @@ def _generate_full_report_pdf(insp: VehicleInspection) -> str:
     story.append(Spacer(1, 0.05*inch))
 
     if damages:
-        dmg_header = [["View", "Type", "Description", "Photos"]]
+        dmg_header = [["Vista", "Tipo", "Descripción", "Foto"]]
         dmg_rows = []
         for d in damages:
+            if d.photos and base_url and token:
+                photo_url = f"{base_url}{d.photos[0]}?token={token}"
+                photo_cell = Paragraph(
+                    f'<link href="{photo_url}" color="#1a6fc4">Ver →</link>',
+                    link_style
+                )
+            else:
+                photo_cell = Paragraph(str(len(d.photos)) if d.photos else "—", body_style)
             dmg_rows.append([
                 d.view.upper(),
                 d.damage_type.title(),
-                d.description or "—",
-                str(len(d.photos)),
+                Paragraph(d.description or "—", body_style),
+                photo_cell,
             ])
         dmg_table = Table(dmg_header + dmg_rows,
                           colWidths=[0.8*inch, 1*inch, 4.5*inch, 0.7*inch])
@@ -761,18 +771,19 @@ def get_liability_pdf(
 
 @router.get("/{inspection_id}/report-pdf")
 def get_report_pdf(
+    request: Request,
     inspection_id: uuid.UUID,
+    token: Optional[str] = Query(default=None, alias="token"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user_download),
 ):
     insp = _get_inspection(db, inspection_id)
     if not insp.full_report_pdf_path:
         raise HTTPException(status_code=404, detail="PDF no disponible aún")
-    file_path = os.path.join(
-        settings.UPLOADS_DIR, "pdfs", f"{insp.id}_report.pdf"
-    )
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="Archivo PDF no encontrado")
+    scheme = request.headers.get("x-forwarded-proto", "https")
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    base_url = f"{scheme}://{host}" if host else None
+    file_path = _generate_full_report_pdf(insp, base_url=base_url, token=token)
     return FileResponse(file_path, media_type="application/pdf",
                         filename=f"report_{insp.id}.pdf")
 

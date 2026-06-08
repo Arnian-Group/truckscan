@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import api from '../lib/api'
 import { isAdmin } from '../lib/auth'
+import { mediaUrl } from '../lib/mediaUrl'
 
 const CHECKLIST_ITEMS = [
   { key: 'licencia',     label: 'Copia de Licencia' },
@@ -147,7 +148,6 @@ export default function VehicleDetail() {
 
   const st = STATUS_LABELS[insp.status] || STATUS_LABELS.intake
   const damages = insp.damages || []
-  const STATIC_BASE = import.meta.env.VITE_API_URL || ''
 
   // Damage summary by type
   async function handleSaveChecklist() {
@@ -227,10 +227,10 @@ export default function VehicleDetail() {
                   {d.photos?.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2 pl-5">
                       {d.photos.map((p, i) => {
-                        const all = d.photos.map(x => STATIC_BASE + x)
+                        const all = d.photos.map(x => mediaUrl(x))
                         return (
                           <button key={i} onClick={() => openPhoto(all, i)} className="relative group">
-                            <img src={STATIC_BASE + p} alt="" className="w-16 h-16 object-cover border border-white/10 group-hover:border-[#F5A623]/60 transition-colors" />
+                            <img src={mediaUrl(p)} alt="" className="w-16 h-16 object-cover border border-white/10 group-hover:border-[#F5A623]/60 transition-colors" />
                             <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
                               <ZoomIn size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                             </span>
@@ -279,10 +279,10 @@ export default function VehicleDetail() {
                         {d.photos?.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2 pl-5">
                             {d.photos.map((p, i) => {
-                              const all = d.photos.map(x => STATIC_BASE + x)
+                              const all = d.photos.map(x => mediaUrl(x))
                               return (
                                 <button key={i} onClick={() => openPhoto(all, i)} className="relative group">
-                                  <img src={STATIC_BASE + p} alt="" className="w-16 h-16 object-cover border border-white/10 group-hover:border-[#F5A623]/60 transition-colors" />
+                                  <img src={mediaUrl(p)} alt="" className="w-16 h-16 object-cover border border-white/10 group-hover:border-[#F5A623]/60 transition-colors" />
                                   <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
                                     <ZoomIn size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                                   </span>

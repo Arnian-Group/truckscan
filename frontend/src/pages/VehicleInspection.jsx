@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import DamageSheet from '../components/DamageSheet'
 import api from '../lib/api'
+import { mediaUrl } from '../lib/mediaUrl'
 
 const VIEWS = [
   { id: 'front',    label: 'Front',    labelEs: 'Frontal' },
@@ -270,7 +271,7 @@ export default function VehicleInspection() {
               {selectedDamage.photos?.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-4">
                   {selectedDamage.photos.map((p, i) => (
-                    <img key={i} src={p} alt="" className="w-20 h-20 object-cover border border-white/10" />
+                    <img key={i} src={mediaUrl(p)} alt="" className="w-20 h-20 object-cover border border-white/10" />
                   ))}
                 </div>
               )}

@@ -3,7 +3,6 @@ import uuid
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -11,7 +10,7 @@ from .database import engine, SessionLocal, Base
 from .models import User, Trailer, Section, UserRole, TrailerStatus, SectionStatus
 from .auth import hash_password
 from .config import settings
-from .routers import auth, trailers, sections, users, audit, vehicles
+from .routers import auth, trailers, sections, users, audit, vehicles, uploads
 
 
 def seed_db(db: Session):
@@ -131,8 +130,7 @@ app.include_router(sections.router, prefix="/trailers", tags=["sections"])
 app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(audit.router, prefix="/audit", tags=["audit"])
 app.include_router(vehicles.router, prefix="/vehicles", tags=["vehicles"])
-
-app.mount("/uploads", StaticFiles(directory=settings.UPLOADS_DIR), name="uploads")
+app.include_router(uploads.router, prefix="/uploads", tags=["uploads"])
 
 
 @app.get("/health")
