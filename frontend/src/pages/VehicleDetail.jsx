@@ -454,7 +454,7 @@ export default function VehicleDetail() {
               </div>
             )
           })()}
-          {insp.full_report_pdf_path && (
+          {insp.status === 'completed' && (
             <button
               onClick={() => openPDF(`/vehicles/${id}/${isMercancias ? 'mercancias-pdf' : 'report-pdf'}`)}
               className="w-full flex items-center gap-3 py-3.5 px-4 border border-white/10 hover:border-[#F5A623]/40 transition-colors"

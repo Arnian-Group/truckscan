@@ -80,13 +80,17 @@ _GRAY_LINE = "#C5CDD9"
 
 
 def _get_logo_path() -> str:
-    """Download logo from CDN once and cache in uploads dir."""
+    """Download logo from CDN once and cache in uploads dir. 4s timeout."""
     import urllib.request
     cached = os.path.join(settings.UPLOADS_DIR, "arnian_logo.png")
     if os.path.isfile(cached):
         return cached
     try:
-        urllib.request.urlretrieve(_LOGO_URL, cached)
+        req = urllib.request.Request(_LOGO_URL, headers={"User-Agent": "TruckScan/1.0"})
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            data = resp.read()
+        with open(cached, "wb") as f:
+            f.write(data)
         return cached
     except Exception:
         return ""
@@ -979,9 +983,13 @@ def complete_inspection(
     insp.status = InspectionStatus.completed
     db.commit()
 
-    pdf_path = _generate_full_report_pdf(insp)
-    insp.full_report_pdf_path = pdf_path
-    db.commit()
+    try:
+        pdf_path = _generate_full_report_pdf(insp)
+        insp.full_report_pdf_path = pdf_path
+        db.commit()
+    except Exception as e:
+        import traceback
+        print(f"[PDF] full_report generation failed for {insp.id}: {e}\n{traceback.format_exc()}")
     db.refresh(insp)
 
     log_action(db, current_user.id, "vehicle_inspection_completed", "vehicle_inspection", str(insp.id))
@@ -1015,12 +1023,15 @@ def get_report_pdf(
     current_user: User = Depends(get_current_user_download),
 ):
     insp = _get_inspection(db, inspection_id)
-    if not insp.full_report_pdf_path:
+    if insp.status != InspectionStatus.completed:
         raise HTTPException(status_code=404, detail="PDF no disponible aún")
     scheme = request.headers.get("x-forwarded-proto", "https")
     host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
     base_url = f"{scheme}://{host}" if host else None
-    _generate_full_report_pdf(insp, base_url=base_url, token=token)
+    pdf_path = _generate_full_report_pdf(insp, base_url=base_url, token=token)
+    if not insp.full_report_pdf_path:
+        insp.full_report_pdf_path = pdf_path
+        db.commit()
     fs_path = os.path.join(settings.UPLOADS_DIR, "pdfs", f"{insp.id}_report.pdf")
     return FileResponse(fs_path, media_type="application/pdf",
                         filename=f"report_{insp.id}.pdf")
