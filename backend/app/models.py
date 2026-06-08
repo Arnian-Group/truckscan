@@ -147,6 +147,8 @@ class VehicleInspection(Base):
     liability_pdf_path = Column(String(500), nullable=True)
     full_report_pdf_path = Column(String(500), nullable=True)
 
+    is_deleted = Column(Boolean, default=False, server_default='false', nullable=False)
+
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)

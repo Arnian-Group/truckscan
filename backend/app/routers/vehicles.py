@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
 from ..models import User, VehicleInspection, VehicleDamage, InspectionStatus
-from ..auth import get_current_user, require_vehicle_agent
+from ..auth import get_current_user, require_vehicle_agent, require_admin
 from ..schemas import (
     VehicleIntakeCreate, VehicleIntakeUpdate, SignBody,
     VehicleDamageUpdate, VehicleDamageOut,
@@ -32,7 +32,7 @@ def _get_inspection(db: Session, inspection_id: uuid.UUID) -> VehicleInspection:
     insp = (
         db.query(VehicleInspection)
         .options(joinedload(VehicleInspection.damages))
-        .filter(VehicleInspection.id == inspection_id)
+        .filter(VehicleInspection.id == inspection_id, VehicleInspection.is_deleted == False)
         .first()
     )
     if not insp:
@@ -372,7 +372,7 @@ def list_inspections(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vehicle_agent),
 ):
-    q = db.query(VehicleInspection)
+    q = db.query(VehicleInspection).filter(VehicleInspection.is_deleted == False)
     if status:
         q = q.filter(VehicleInspection.status == status)
     if vehicle_type:
@@ -648,3 +648,22 @@ def get_report_pdf(
         raise HTTPException(status_code=404, detail="Archivo PDF no encontrado")
     return FileResponse(file_path, media_type="application/pdf",
                         filename=f"report_{insp.id}.pdf")
+
+
+
+@router.delete("/{inspection_id}", status_code=204)
+def delete_inspection(
+    inspection_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    insp = (
+        db.query(VehicleInspection)
+        .filter(VehicleInspection.id == inspection_id)
+        .first()
+    )
+    if not insp:
+        raise HTTPException(status_code=404, detail="Inspección no encontrada")
+    insp.is_deleted = True
+    db.commit()
+    log_action(db, current_user.id, "vehicle_inspection_deleted", "vehicle_inspection", str(insp.id))

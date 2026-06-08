@@ -143,7 +143,7 @@ export default function VehicleInspection() {
               className="w-full flex items-center justify-center gap-2 border border-dashed border-white/20 hover:border-[#F5A623]/60 text-white/40 hover:text-[#F5A623] py-5 transition-colors"
             >
               <Plus size={18} />
-              <span className="text-sm font-mono">Agregar daño en vista {VIEWS.find(v => v.id === activeView)?.labelEs || activeView}</span>
+              <span className="text-sm font-mono">Agregar fotos / observación — {VIEWS.find(v => v.id === activeView)?.labelEs || activeView}</span>
             </button>
           </div>
 
@@ -159,7 +159,7 @@ export default function VehicleInspection() {
                   className="w-full flex items-center gap-3 bg-[#161b27] border border-white/5 hover:border-white/20 px-3 py-2.5 text-left transition-colors"
                 >
                   <span className="w-6 h-6 rounded-full text-[10px] font-bold flex items-center justify-center text-white flex-shrink-0"
-                    style={{ backgroundColor: { scratched:'#EF4444',dented:'#F97316',stained:'#3B82F6',cracked:'#8B5CF6',missing:'#6B7280',other:'#F5A623' }[d.damage_type] || '#F5A623' }}>
+                    style={{ backgroundColor: { condition:'#22C55E',scratched:'#EF4444',dented:'#F97316',stained:'#3B82F6',cracked:'#8B5CF6',missing:'#6B7280',other:'#F5A623' }[d.damage_type] || '#F5A623' }}>
                     {i + 1}
                   </span>
                   <div className="flex-1 min-w-0">
@@ -178,7 +178,7 @@ export default function VehicleInspection() {
         {/* Footer */}
         <div className="bg-[#161b27] border-t border-white/10 px-4 py-3 flex items-center gap-3 flex-shrink-0">
           <div className="flex-1 text-xs text-white/40 font-mono">
-            {totalDamages} daño{totalDamages !== 1 ? 's' : ''} total{totalDamages !== 1 ? 'es' : ''}
+            {totalDamages} observación{totalDamages !== 1 ? 'es' : ''} en total
           </div>
           <button
             onClick={() => setConfirmFinish(true)}

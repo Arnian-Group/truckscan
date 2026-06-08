@@ -88,6 +88,10 @@ async def lifespan(app: FastAPI):
             "UPDATE users SET can_trailers=TRUE "
             "WHERE role='operator' AND can_trailers=FALSE"
         ))
+        conn.execute(text(
+            "ALTER TABLE vehicle_inspections ADD COLUMN IF NOT EXISTS "
+            "is_deleted BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
         conn.commit()
     os.makedirs(settings.UPLOADS_DIR, exist_ok=True)
     os.makedirs(os.path.join(settings.UPLOADS_DIR, "pdfs"), exist_ok=True)

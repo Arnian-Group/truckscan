@@ -3,12 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Camera, Trash2 } from 'lucide-react'
 
 const DAMAGE_TYPES = [
-  { id: 'scratched', label: 'Scratched', labelEs: 'Rallado',  color: '#EF4444' },
-  { id: 'dented',    label: 'Dented',    labelEs: 'Abollado', color: '#F97316' },
-  { id: 'stained',   label: 'Stained',   labelEs: 'Manchado', color: '#3B82F6' },
-  { id: 'cracked',   label: 'Cracked',   labelEs: 'Quebrado', color: '#8B5CF6' },
-  { id: 'missing',   label: 'Missing',   labelEs: 'Faltante', color: '#6B7280' },
-  { id: 'other',     label: 'Other',     labelEs: 'Otro',     color: '#F5A623' },
+  { id: 'condition', label: 'Condition', labelEs: 'Sin daño',  color: '#22C55E' },
+  { id: 'scratched', label: 'Scratched', labelEs: 'Rallado',   color: '#EF4444' },
+  { id: 'dented',    label: 'Dented',    labelEs: 'Abollado',  color: '#F97316' },
+  { id: 'stained',   label: 'Stained',   labelEs: 'Manchado',  color: '#3B82F6' },
+  { id: 'cracked',   label: 'Cracked',   labelEs: 'Quebrado',  color: '#8B5CF6' },
+  { id: 'missing',   label: 'Missing',   labelEs: 'Faltante',  color: '#6B7280' },
+  { id: 'other',     label: 'Other',     labelEs: 'Otro',      color: '#F5A623' },
 ]
 
 export default function DamageSheet({ onSave, onClose, loading = false, initialData = null }) {
@@ -44,14 +45,14 @@ export default function DamageSheet({ onSave, onClose, loading = false, initialD
           transition={{ type: 'spring', damping: 30, stiffness: 300 }}
         >
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-lg">Registrar Daño</h3>
+            <h3 className="font-bold text-lg">Agregar Observación</h3>
             <button onClick={onClose} className="p-2 text-white/50 min-w-[44px] min-h-[44px] flex items-center justify-center">
               <X size={20} />
             </button>
           </div>
 
           {/* Damage type grid */}
-          <p className="text-xs font-mono text-white/40 uppercase tracking-wider mb-2">Tipo de daño</p>
+          <p className="text-xs font-mono text-white/40 uppercase tracking-wider mb-2">Tipo de observación</p>
           <div className="grid grid-cols-3 gap-2 mb-4">
             {DAMAGE_TYPES.map(dt => (
               <button
@@ -84,7 +85,7 @@ export default function DamageSheet({ onSave, onClose, loading = false, initialD
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
-            placeholder="Ej: Raya en puerta trasera, 20cm..."
+            placeholder="Ej: Buen estado general, raya en puerta trasera..."
             rows={2}
             className="w-full bg-[#1e2535] border border-white/10 text-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#F5A623] resize-none mb-4"
           />
@@ -134,7 +135,7 @@ export default function DamageSheet({ onSave, onClose, loading = false, initialD
             disabled={!damageType || loading}
             className="w-full bg-[#F5A623] text-[#0f1117] font-bold py-4 min-h-[56px] hover:bg-[#e8961f] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
-            {loading ? 'Guardando...' : 'Guardar Daño'}
+            {loading ? 'Guardando...' : 'Guardar'}
           </button>
         </motion.div>
       </motion.div>

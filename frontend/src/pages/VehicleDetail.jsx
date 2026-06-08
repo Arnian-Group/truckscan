@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, FileText, Printer, CheckSquare, Square, ExternalLink } from 'lucide-react'
+import { Loader, FileText, Printer, CheckSquare, Square, ExternalLink, Trash2 } from 'lucide-react'
 import Layout from '../components/Layout'
 import api from '../lib/api'
+import { isAdmin } from '../lib/auth'
 
 const STATUS_LABELS = {
   intake: { label: 'INTAKE', color: 'text-[#F5A623] bg-[#F5A62322] border-[#F5A62340]' },
@@ -12,6 +13,7 @@ const STATUS_LABELS = {
 }
 
 const DAMAGE_COLORS = {
+  condition: '#22C55E',
   scratched: '#EF4444', dented: '#F97316', stained: '#3B82F6',
   cracked: '#8B5CF6', missing: '#6B7280', other: '#F5A623',
 }
@@ -46,6 +48,9 @@ export default function VehicleDetail() {
   const navigate = useNavigate()
   const [insp, setInsp] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const admin = isAdmin()
 
   useEffect(() => {
     api.get(`/vehicles/${id}`).then(({ data }) => setInsp(data)).catch(console.error).finally(() => setLoading(false))
@@ -66,7 +71,20 @@ export default function VehicleDetail() {
   const STATIC_BASE = import.meta.env.VITE_API_URL || ''
 
   // Damage summary by type
-  const dmgSummary = damages.reduce((acc, d) => {
+  async function handleDelete() {
+    setDeleting(true)
+    try {
+      await api.delete(`/vehicles/${id}`)
+      navigate('/vehicles')
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al archivar')
+      setDeleting(false)
+    }
+  }
+
+  const realDamages = damages.filter(d => d.damage_type !== 'condition')
+  const conditionPhotos = damages.filter(d => d.damage_type === 'condition')
+  const dmgSummary = realDamages.reduce((acc, d) => {
     acc[d.damage_type] = (acc[d.damage_type] || 0) + 1
     return acc
   }, {})
@@ -106,12 +124,40 @@ export default function VehicleDetail() {
           </div>
         </div>
 
+        {/* Condition photos */}
+        {conditionPhotos.length > 0 && (
+          <section>
+            <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3">
+              Fotos de condición — {conditionPhotos.length} vista{conditionPhotos.length !== 1 ? 's' : ''}
+            </h2>
+            <div className="space-y-1.5">
+              {conditionPhotos.map(d => (
+                <div key={d.id} className="bg-[#161b27] border border-white/5 px-3 py-2.5">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-3 h-3 rounded-full flex-shrink-0 bg-[#22C55E]" />
+                    <span className="text-sm font-mono text-white/60 uppercase">{d.view}</span>
+                    {d.photos?.length > 0 && <span className="text-xs text-white/30 ml-auto">{d.photos.length} foto{d.photos.length !== 1 ? 's' : ''}</span>}
+                  </div>
+                  {d.description && <p className="text-xs text-white/50 pl-5">{d.description}</p>}
+                  {d.photos?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2 pl-5">
+                      {d.photos.map((p, i) => (
+                        <img key={i} src={STATIC_BASE + p} alt="" className="w-16 h-16 object-cover border border-white/10" />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Damage summary */}
         <section>
           <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3">
-            Daños — {damages.length} total{damages.length !== 1 ? 'es' : ''}
+            Daños — {realDamages.length} total{realDamages.length !== 1 ? 'es' : ''}
           </h2>
-          {damages.length === 0 ? (
+          {realDamages.length === 0 ? (
             <p className="text-white/25 text-sm font-mono">Sin daños registrados</p>
           ) : (
             <>
@@ -123,7 +169,9 @@ export default function VehicleDetail() {
                   </span>
                 ))}
               </div>
-              {Object.entries(dmgByView).map(([view, dmgs]) => (
+              {Object.entries(
+                realDamages.reduce((acc, d) => { (acc[d.view] = acc[d.view] || []).push(d); return acc }, {})
+              ).map(([view, dmgs]) => (
                 <div key={view} className="mb-3">
                   <p className="text-xs font-mono text-white/30 uppercase mb-1">{view}</p>
                   <div className="space-y-1.5">
@@ -219,6 +267,15 @@ export default function VehicleDetail() {
               Continuar Inspección →
             </button>
           )}
+          {admin && (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="w-full flex items-center justify-center gap-2 py-3.5 border border-red-500/30 text-red-400/70 font-mono text-sm hover:border-red-500/60 hover:text-red-400 transition-colors"
+            >
+              <Trash2 size={14} />
+              Archivar inspección
+            </button>
+          )}
         </section>
 
         {/* Notes */}
@@ -229,6 +286,34 @@ export default function VehicleDetail() {
           </section>
         )}
       </div>
+
+      {/* Confirm archive modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+          <div className="absolute inset-0 bg-black/80" onClick={() => setConfirmDelete(false)} />
+          <div className="relative bg-[#161b27] border border-white/10 p-6 w-full max-w-sm">
+            <h3 className="font-bold text-lg mb-2">¿Archivar inspección?</h3>
+            <p className="text-white/50 text-sm mb-6">
+              La inspección dejará de aparecer en la lista. Esta acción es reversible desde la base de datos.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1 py-3 border border-white/10 text-white/50 font-mono text-sm hover:text-white"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => { setConfirmDelete(false); handleDelete() }}
+                disabled={deleting}
+                className="flex-1 py-3 bg-red-600 text-white font-bold text-sm hover:bg-red-700 disabled:opacity-60"
+              >
+                {deleting ? 'Archivando...' : 'Archivar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }
