@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Camera, CheckCircle, ChevronLeft, ChevronRight, Loader } from 'lucide-react'
 import api from '../lib/api'
+import { mediaUrl } from '../lib/mediaUrl'
 
 const DOOR_SECTIONS = [4, 8]
 
@@ -65,7 +66,6 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
     }
   }
 
-  const apiBase = import.meta.env.VITE_API_URL || ''
 
   return (
     <AnimatePresence>
@@ -135,7 +135,7 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
                     className="aspect-square bg-[#1e2535] overflow-hidden"
                   >
                     <img
-                      src={`${apiBase}${src}`}
+                      src={mediaUrl(src)}
                       alt={`Photo ${i + 1}`}
                       className="w-full h-full object-cover"
                     />
@@ -222,7 +222,6 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
         <Lightbox
           photos={photos}
           index={lightbox}
-          apiBase={apiBase}
           onClose={() => setLightbox(null)}
           onChange={setLightbox}
         />
@@ -231,7 +230,7 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
   )
 }
 
-function Lightbox({ photos, index, apiBase, onClose, onChange }) {
+function Lightbox({ photos, index, onClose, onChange }) {
   return (
     <motion.div
       className="fixed inset-0 z-[60] bg-black flex items-center justify-center"
@@ -249,7 +248,7 @@ function Lightbox({ photos, index, apiBase, onClose, onChange }) {
       </button>
 
       <img
-        src={`${apiBase}${photos[index]}`}
+        src={mediaUrl(photos[index])}
         alt={`Photo ${index + 1}`}
         className="max-w-full max-h-full object-contain"
         onClick={(e) => e.stopPropagation()}
