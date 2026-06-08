@@ -424,10 +424,9 @@ def create_inspection(
     )
     db.add(insp)
     db.commit()
-    db.refresh(insp)
     log_action(db, current_user.id, "vehicle_inspection_created", "vehicle_inspection",
                str(insp.id), {"vehicle_type": body.vehicle_type.value})
-    return insp
+    return _get_inspection(db, insp.id)
 
 
 @router.get("/{inspection_id}", response_model=VehicleInspectionOut)
