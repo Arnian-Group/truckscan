@@ -387,7 +387,12 @@ def list_inspections(
         .all()
     )
     log_action(db, current_user.id, "vehicles_listed", metadata={"page": page, "total": total})
-    return {"items": items, "total": total, "page": page, "page_size": page_size}
+    return {
+        "items": [VehicleInspectionListItem.model_validate(i) for i in items],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
 
 
 @router.post("", response_model=VehicleInspectionOut, status_code=201)

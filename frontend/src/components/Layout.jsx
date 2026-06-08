@@ -31,7 +31,9 @@ export default function Layout({ children, title, back }) {
         ) : (
           <Truck size={22} className="text-[#F5A623] shrink-0" />
         )}
-        <span className="font-bold text-lg tracking-tight flex-1 truncate">{title || 'TruckScan'}</span>
+        <Link to="/" className="font-bold text-lg tracking-tight flex-1 truncate hover:text-[#F5A623] transition-colors">
+          {title || 'TruckScan'}
+        </Link>
         <div className="flex items-center gap-1">
           <span className="text-xs text-white/40 font-mono hidden sm:block truncate max-w-[120px]">{user?.email}</span>
           <button

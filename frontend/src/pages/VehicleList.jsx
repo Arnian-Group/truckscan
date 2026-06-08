@@ -68,8 +68,8 @@ export default function VehicleList() {
       const params = { page: p, page_size: PAGE_SIZE }
       if (filter) params.status = filter
       const { data } = await api.get('/vehicles', { params })
-      setItems(data.items)
-      setTotal(data.total)
+      setItems(data?.items ?? [])
+      setTotal(data?.total ?? 0)
     } catch (err) {
       console.error(err)
     } finally {
