@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, CheckSquare, Square, Trash2 } from 'lucide-react'
+import { Loader, CheckSquare, Square, Trash2, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
 import Layout from '../components/Layout'
 import SignatureCanvas from '../components/SignatureCanvas'
 import api from '../lib/api'
@@ -15,6 +15,90 @@ const CHECKLIST_ITEMS = [
   { key: 'cotizacion',  label: 'Cotización Firmada / Signed Quote' },
   { key: 'autorizacion',label: 'Carta de Autorización / Authorization' },
 ]
+
+function IntakeSummary({ form, insp }) {
+  const [open, setOpen] = useState(true)
+
+  const vehicleType = insp?.vehicle_type?.toUpperCase() || '—'
+  const rows = [
+    { label: 'Tipo',     value: vehicleType },
+    { label: 'Cliente',  value: form.nombre },
+    { label: 'ID',       value: form.id_cliente },
+    { label: 'Año',      value: form.year },
+    { label: 'Marca',    value: form.make },
+    { label: 'Modelo',   value: form.model },
+    { label: 'Color',    value: form.color },
+    { label: 'Placas',   value: form.placas },
+    { label: 'Odóm.',    value: form.odometer ? `${form.odometer} km/mi` : null },
+    { label: 'VIN',      value: form.vin },
+    { label: 'Gasolina', value: form.gasolina },
+    { label: 'Ciudad',   value: form.city },
+    { label: 'Fecha',    value: form.fecha },
+  ].filter(r => r.value)
+
+  const checkedDocs = CHECKLIST_ITEMS.filter(i => form.checklist[i.key])
+  const missingDocs = CHECKLIST_ITEMS.filter(i => !form.checklist[i.key])
+
+  return (
+    <div className="border border-[#F5A623]/30 bg-[#F5A62308]">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 text-left"
+      >
+        <div className="flex items-center gap-2">
+          <AlertCircle size={15} className="text-[#F5A623]" />
+          <span className="text-sm font-bold text-[#F5A623]">Revisar antes de firmar</span>
+        </div>
+        {open ? <ChevronUp size={16} className="text-[#F5A623]/60" /> : <ChevronDown size={16} className="text-[#F5A623]/60" />}
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-4 border-t border-[#F5A623]/20">
+          <p className="text-xs text-white/40 pt-3">
+            Por favor revisa que los datos sean correctos antes de firmar. Si algo está mal, desplázate hacia arriba y corrígelo.
+          </p>
+
+          {/* Vehicle info */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+            {rows.map(({ label, value }) => (
+              <div key={label}>
+                <span className="text-[10px] font-mono text-white/30 uppercase">{label}</span>
+                <p className="text-sm text-white/80 font-mono truncate">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          {form.notas && (
+            <div>
+              <span className="text-[10px] font-mono text-white/30 uppercase">Notas</span>
+              <p className="text-xs text-white/60 mt-0.5">{form.notas}</p>
+            </div>
+          )}
+
+          {/* Checklist */}
+          <div>
+            <p className="text-[10px] font-mono text-white/30 uppercase mb-1.5">Documentos</p>
+            <div className="space-y-1">
+              {checkedDocs.map(i => (
+                <div key={i.key} className="flex items-center gap-2 text-xs text-white/60">
+                  <CheckSquare size={13} className="text-[#22C55E] shrink-0" />
+                  {i.label}
+                </div>
+              ))}
+              {missingDocs.map(i => (
+                <div key={i.key} className="flex items-center gap-2 text-xs text-white/30">
+                  <Square size={13} className="shrink-0" />
+                  {i.label}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function Field({ label, children }) {
   return (
@@ -294,6 +378,9 @@ export default function VehicleIntake() {
         >
           {saving ? 'Guardando...' : 'Guardar Datos'}
         </button>
+
+        {/* Review summary */}
+        <IntakeSummary form={form} insp={insp} />
 
         {/* Legal text */}
         <section>

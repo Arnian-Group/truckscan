@@ -1,31 +1,39 @@
-import { useRef, useCallback, useState } from 'react'
+import { useRef, useEffect, useCallback, useState } from 'react'
 
 export default function SignatureCanvas({ label, onSave, onClear }) {
   const canvasRef = useRef(null)
-  const ctxRef = useRef(null)
   const isDrawing = useRef(false)
+  const lastPos = useRef(null)
   const [hasSignature, setHasSignature] = useState(false)
 
-  function initCtx() {
-    if (ctxRef.current) return ctxRef.current
+  function getCtx() {
+    return canvasRef.current?.getContext('2d')
+  }
+
+  function fillWhite(ctx, canvas) {
+    ctx.save()
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.restore()
+  }
+
+  useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return null
+    if (!canvas) return
     const dpr = window.devicePixelRatio || 1
-    const w = canvas.offsetWidth || 400
+    const w = canvas.offsetWidth
+    const h = canvas.offsetHeight
     canvas.width = w * dpr
-    canvas.height = 150 * dpr
-    canvas.style.height = '150px'
+    canvas.height = h * dpr
     const ctx = canvas.getContext('2d')
     ctx.scale(dpr, dpr)
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, w, 150)
-    ctx.strokeStyle = '#1a1a1a'
-    ctx.lineWidth = 2
+    fillWhite(ctx, canvas)
+    ctx.strokeStyle = '#000000'
+    ctx.lineWidth = 2.5
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
-    ctxRef.current = ctx
-    return ctx
-  }
+  }, [])
 
   function getPos(e) {
     const canvas = canvasRef.current
@@ -38,35 +46,34 @@ export default function SignatureCanvas({ label, onSave, onClear }) {
 
   const startDraw = useCallback((e) => {
     e.preventDefault()
-    const ctx = initCtx()
-    if (!ctx) return
     isDrawing.current = true
-    const p = getPos(e)
-    ctx.beginPath()
-    ctx.moveTo(p.x, p.y)
+    lastPos.current = getPos(e)
   }, [])
 
   const draw = useCallback((e) => {
     e.preventDefault()
     if (!isDrawing.current) return
-    const ctx = ctxRef.current
+    const ctx = getCtx()
     if (!ctx) return
-    const p = getPos(e)
-    ctx.lineTo(p.x, p.y)
+    const pos = getPos(e)
+    ctx.beginPath()
+    ctx.moveTo(lastPos.current.x, lastPos.current.y)
+    ctx.lineTo(pos.x, pos.y)
     ctx.stroke()
+    lastPos.current = pos
     setHasSignature(true)
   }, [])
 
   const endDraw = useCallback(() => {
     isDrawing.current = false
+    lastPos.current = null
   }, [])
 
   function clear() {
     const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = ctxRef.current || initCtx()
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, canvas.offsetWidth, 150)
+    const ctx = getCtx()
+    if (!ctx || !canvas) return
+    fillWhite(ctx, canvas)
     setHasSignature(false)
     onClear?.()
   }
@@ -86,8 +93,8 @@ export default function SignatureCanvas({ label, onSave, onClear }) {
       )}
       <canvas
         ref={canvasRef}
-        className="w-full bg-white border border-white/10 touch-none block"
-        style={{ height: '150px', cursor: 'crosshair' }}
+        className="w-full border border-white/20 touch-none block"
+        style={{ height: '150px', background: '#ffffff', cursor: 'crosshair' }}
         onMouseDown={startDraw}
         onMouseMove={draw}
         onMouseUp={endDraw}
