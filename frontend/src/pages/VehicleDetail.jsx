@@ -98,19 +98,29 @@ function PhotoLightbox({ photos, startIndex, onClose }) {
   )
 }
 
-function openPDF(endpoint, filename = null) {
+async function openPDF(endpoint, filename = null) {
   const token = localStorage.getItem('token')
   const base = import.meta.env.VITE_API_URL || ''
-  const url = `${base}${endpoint}?token=${encodeURIComponent(token)}`
-  if (filename) {
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-  } else {
-    window.open(url, '_blank', 'noopener')
+  try {
+    const resp = await fetch(`${base}${endpoint}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!resp.ok) throw new Error('PDF no disponible')
+    const blob = await resp.blob()
+    const url = URL.createObjectURL(blob)
+    if (filename) {
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    } else {
+      window.open(url, '_blank', 'noopener')
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 15000)
+  } catch (err) {
+    alert(err.message || 'Error al cargar el PDF')
   }
 }
 

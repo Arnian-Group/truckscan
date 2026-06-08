@@ -19,6 +19,7 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return
+  if (!event.request.url.startsWith('http')) return
   const url = new URL(event.request.url)
   if (url.pathname.startsWith('/uploads/') || url.pathname.startsWith('/auth/') || url.pathname.startsWith('/trailers') || url.pathname.startsWith('/users') || url.pathname.startsWith('/audit') || url.pathname.startsWith('/vehicles') || url.pathname.startsWith('/health')) return
 
