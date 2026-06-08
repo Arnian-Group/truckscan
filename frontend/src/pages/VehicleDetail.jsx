@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, FileText, Printer, CheckSquare, Square, ExternalLink, Trash2, Shield } from 'lucide-react'
+import { Loader, FileText, Printer, Download, CheckSquare, Square, ExternalLink, Trash2, Shield } from 'lucide-react'
 import Layout from '../components/Layout'
 import api from '../lib/api'
 import { isAdmin } from '../lib/auth'
@@ -27,14 +27,18 @@ const DAMAGE_COLORS = {
 }
 
 
-async function openPDF(endpoint) {
+async function openPDF(endpoint, filename = null) {
   try {
     const resp = await api.get(endpoint, { responseType: 'blob' })
     const url = URL.createObjectURL(new Blob([resp.data], { type: 'application/pdf' }))
     const a = document.createElement('a')
     a.href = url
-    a.target = '_blank'
-    a.rel = 'noopener'
+    if (filename) {
+      a.download = filename
+    } else {
+      a.target = '_blank'
+      a.rel = 'noopener'
+    }
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -294,16 +298,34 @@ export default function VehicleDetail() {
 
         {/* Actions */}
         <section className="space-y-2">
-          {insp.liability_pdf_path && (
-            <button
-              onClick={() => openPDF(`/vehicles/${id}/liability-pdf`)}
-              className="w-full flex items-center gap-3 py-3.5 px-4 border border-white/10 hover:border-[#F5A623]/40 transition-colors"
-            >
-              <FileText size={18} className="text-[#F5A623]" />
-              <span className="flex-1 text-sm text-left">Ver PDF del Descargo</span>
-              <ExternalLink size={14} className="text-white/30" />
-            </button>
-          )}
+          {insp.liability_pdf_path && (() => {
+            const slug = [insp.nombre, insp.placas, insp.fecha].filter(Boolean).join('_').replace(/\s+/g, '-') || id
+            const filename = `descargo_${slug}.pdf`
+            return (
+              <div className="border border-white/10">
+                <div className="flex items-center gap-3 px-4 py-2.5 border-b border-white/5">
+                  <FileText size={16} className="text-[#F5A623] shrink-0" />
+                  <span className="text-sm text-white/70 flex-1">PDF del Descargo</span>
+                </div>
+                <div className="flex">
+                  <button
+                    onClick={() => openPDF(`/vehicles/${id}/liability-pdf`)}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-white/60 hover:text-white hover:bg-white/5 transition-colors border-r border-white/5"
+                  >
+                    <Printer size={15} />
+                    Ver / Imprimir
+                  </button>
+                  <button
+                    onClick={() => openPDF(`/vehicles/${id}/liability-pdf`, filename)}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-white/60 hover:text-[#F5A623] hover:bg-[#F5A62308] transition-colors"
+                  >
+                    <Download size={15} />
+                    Descargar
+                  </button>
+                </div>
+              </div>
+            )
+          })()}
           {insp.full_report_pdf_path && (
             <button
               onClick={() => openPDF(`/vehicles/${id}/report-pdf`)}
