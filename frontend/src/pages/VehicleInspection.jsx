@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, CheckCircle, Plus } from 'lucide-react'
+import { Loader, CheckCircle, Plus, FileText, Printer, Download } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import DamageSheet from '../components/DamageSheet'
@@ -105,9 +105,55 @@ export default function VehicleInspection() {
   const totalDamages = insp?.damages?.length || 0
   const viewsWithDamages = new Set((insp?.damages || []).map(d => d.view))
 
+  async function handlePDF(download = false) {
+    try {
+      const resp = await api.get(`/vehicles/${id}/liability-pdf`, { responseType: 'blob' })
+      const url = URL.createObjectURL(new Blob([resp.data], { type: 'application/pdf' }))
+      const a = document.createElement('a')
+      a.href = url
+      if (download) {
+        const slug = [insp?.nombre, insp?.placas, insp?.fecha].filter(Boolean).join('_').replace(/\s+/g, '-') || id
+        a.download = `descargo_${slug}.pdf`
+      } else {
+        a.target = '_blank'
+        a.rel = 'noopener'
+      }
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(url), 10000)
+    } catch {
+      alert('Error al cargar el PDF')
+    }
+  }
+
   return (
     <Layout title={`${insp?.make || ''} ${insp?.model || ''} — Inspección`} back="/vehicles">
       <div className="flex flex-col h-[calc(100vh-112px)]">
+
+        {/* PDF del Descargo */}
+        {insp?.liability_pdf_path && (
+          <div className="flex items-center bg-[#0d1520] border-b border-[#F5A623]/20 flex-shrink-0">
+            <div className="flex items-center gap-2 px-3 py-2 flex-1 min-w-0">
+              <FileText size={14} className="text-[#F5A623] shrink-0" />
+              <span className="text-xs font-mono text-white/50 truncate">PDF Descargo</span>
+            </div>
+            <button
+              onClick={() => handlePDF(false)}
+              className="flex items-center gap-1.5 px-3 py-2.5 text-xs text-white/50 hover:text-white border-l border-white/5 transition-colors min-h-[40px]"
+            >
+              <Printer size={13} />
+              Imprimir
+            </button>
+            <button
+              onClick={() => handlePDF(true)}
+              className="flex items-center gap-1.5 px-3 py-2.5 text-xs text-[#F5A623]/70 hover:text-[#F5A623] border-l border-white/5 transition-colors min-h-[40px]"
+            >
+              <Download size={13} />
+              Descargar
+            </button>
+          </div>
+        )}
 
         {/* View tabs */}
         <div className="flex bg-[#161b27] border-b border-white/10 overflow-x-auto flex-shrink-0">
