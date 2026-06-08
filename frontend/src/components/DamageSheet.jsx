@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Camera, Trash2 } from 'lucide-react'
+import { compressImage } from '../lib/compressImage'
 
 const DAMAGE_TYPES = [
   { id: 'condition', label: 'Condition', labelEs: 'Sin daño',  color: '#22C55E' },
@@ -18,9 +19,10 @@ export default function DamageSheet({ onSave, onClose, loading = false, initialD
   const [photos, setPhotos] = useState([])
   const fileRef = useRef(null)
 
-  function handlePhotos(e) {
+  async function handlePhotos(e) {
     const files = Array.from(e.target.files || [])
-    setPhotos(prev => [...prev, ...files])
+    const compressed = await Promise.all(files.map(f => compressImage(f)))
+    setPhotos(prev => [...prev, ...compressed])
   }
 
   function removePhoto(i) {

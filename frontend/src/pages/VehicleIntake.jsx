@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, CheckSquare, Square, Trash2, X, ArrowRight } from 'lucide-react'
+import { Loader, CheckSquare, Square, Trash2, X, ArrowRight, ChevronDown, ChevronUp, Hash } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import SignatureCanvas from '../components/SignatureCanvas'
@@ -17,17 +17,6 @@ const CHECKLIST_ITEMS = [
   { key: 'autorizacion', label: 'Carta de Autorización / Authorization' },
 ]
 
-function Field({ label, children, required }) {
-  return (
-    <div>
-      <label className="block text-xs font-mono text-white/40 uppercase tracking-wider mb-1.5">
-        {label}{required && <span className="text-red-400 ml-1">*</span>}
-      </label>
-      {children}
-    </div>
-  )
-}
-
 function Input({ value, onChange, type = 'text', placeholder, maxLength, className = '' }) {
   return (
     <input
@@ -41,6 +30,47 @@ function Input({ value, onChange, type = 'text', placeholder, maxLength, classNa
   )
 }
 
+function SectionCard({ title, badge, open, onToggle, children }) {
+  return (
+    <div className="bg-[#161b27] border border-white/10 overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-4 py-3.5 text-left min-h-[52px]"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-bold text-white">{title}</span>
+          {badge != null && (
+            <span className={`text-[10px] font-mono px-1.5 py-0.5 border ${
+              badge > 0
+                ? 'text-[#22C55E] border-[#22C55E]/40 bg-[#22C55E]/10'
+                : 'text-white/30 border-white/10'
+            }`}>
+              {badge}
+            </span>
+          )}
+        </div>
+        {open ? <ChevronUp size={16} className="text-white/40 shrink-0" /> : <ChevronDown size={16} className="text-white/40 shrink-0" />}
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 border-t border-white/5 pt-4">
+              {children}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 function ReviewModal({ form, insp, onClose, onSign, signing }) {
   const [firmaOrigen, setFirmaOrigen] = useState(null)
   const [firmaDestino, setFirmaDestino] = useState(null)
@@ -50,6 +80,7 @@ function ReviewModal({ form, insp, onClose, onSign, signing }) {
 
   const vehicleType = insp?.vehicle_type?.toUpperCase() || '—'
   const rows = [
+    { label: 'Folio',     value: insp?.folio },
     { label: 'Tipo',      value: vehicleType },
     { label: 'Cliente',   value: form.nombre },
     { label: 'ID',        value: form.id_cliente },
@@ -68,12 +99,7 @@ function ReviewModal({ form, insp, onClose, onSign, signing }) {
   function handleSign() {
     if (!firmaOrigen) { setSigError('Se requiere la firma del cliente'); return }
     setSigError('')
-    onSign({
-      firmaOrigen,
-      nombreOrigen,
-      firmaDestino,
-      nombreDestino,
-    })
+    onSign({ firmaOrigen, nombreOrigen, firmaDestino, nombreDestino })
   }
 
   return (
@@ -82,7 +108,6 @@ function ReviewModal({ form, insp, onClose, onSign, signing }) {
       initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 30, stiffness: 280 }}
     >
-      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 bg-[#161b27] shrink-0">
         <button onClick={onClose} className="min-w-[40px] min-h-[40px] flex items-center justify-center text-white/50 hover:text-white">
           <X size={20} />
@@ -96,7 +121,6 @@ function ReviewModal({ form, insp, onClose, onSign, signing }) {
       <div className="flex-1 overflow-y-auto">
         <div className="px-4 py-4 space-y-5 max-w-2xl mx-auto pb-8">
 
-          {/* Vehicle summary */}
           <section>
             <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3 pb-2 border-b border-white/5">
               Resumen del vehículo
@@ -119,7 +143,6 @@ function ReviewModal({ form, insp, onClose, onSign, signing }) {
             </div>
           </section>
 
-          {/* Documents */}
           <section>
             <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3 pb-2 border-b border-white/5">
               Documentos recibidos
@@ -139,7 +162,6 @@ function ReviewModal({ form, insp, onClose, onSign, signing }) {
             </div>
           </section>
 
-          {/* Legal */}
           <section>
             <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3 pb-2 border-b border-white/5">
               Descargo de Responsabilidad
@@ -156,7 +178,6 @@ function ReviewModal({ form, insp, onClose, onSign, signing }) {
             </div>
           </section>
 
-          {/* Signatures */}
           <section>
             <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3 pb-2 border-b border-white/5">
               Firmas / Signatures
@@ -231,6 +252,7 @@ export default function VehicleIntake() {
   const [archiving, setArchiving] = useState(false)
   const [confirmArchive, setConfirmArchive] = useState(false)
   const [nombreError, setNombreError] = useState(false)
+  const [openSection, setOpenSection] = useState('cliente')
 
   const [form, setForm] = useState({
     fecha: new Date().toISOString().split('T')[0],
@@ -283,10 +305,20 @@ export default function VehicleIntake() {
     setForm(prev => ({ ...prev, checklist: { ...prev.checklist, [key]: !prev.checklist[key] } }))
   }
 
+  function toggleSection(name) {
+    setOpenSection(prev => prev === name ? null : name)
+  }
+
+  const checklistCount = CHECKLIST_ITEMS.filter(i => form.checklist[i.key]).length
+
+  const vehicleFields = [form.year, form.make, form.model, form.color, form.placas, form.odometer, form.vin, form.gasolina]
+  const vehicleFilled = vehicleFields.filter(Boolean).length
+
   async function handleSaveAndReview() {
     if (!form.nombre?.trim()) {
       setNombreError(true)
-      document.getElementById('field-nombre')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setOpenSection('cliente')
+      setTimeout(() => document.getElementById('field-nombre')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 200)
       return
     }
     setSaving(true)
@@ -349,18 +381,53 @@ export default function VehicleIntake() {
 
   return (
     <Layout title={`Intake — ${insp?.vehicle_type?.toUpperCase() || ''}`} back="/vehicles">
-      <div className="px-4 py-4 pb-32 space-y-6 max-w-2xl mx-auto">
+      <div className="px-4 py-4 pb-32 space-y-3 max-w-2xl mx-auto">
 
-        {/* General info */}
-        <section>
-          <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3 pb-2 border-b border-white/5">
-            Información General
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Fecha">
-              <Input type="date" value={form.fecha} onChange={set('fecha')} />
-            </Field>
-            <Field label="Ciudad">
+        {/* Folio badge */}
+        {insp?.folio && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-[#0d1520] border border-[#F5A623]/20">
+            <Hash size={13} className="text-[#F5A623] shrink-0" />
+            <span className="text-xs font-mono text-[#F5A623]">{insp.folio}</span>
+          </div>
+        )}
+
+        {/* Cliente section */}
+        <SectionCard
+          title="Cliente"
+          badge={form.nombre ? 1 : 0}
+          open={openSection === 'cliente'}
+          onToggle={() => toggleSection('cliente')}
+        >
+          <div className="space-y-3">
+            <div id="field-nombre">
+              <label className="block text-xs font-mono text-white/40 uppercase tracking-wider mb-1.5">
+                Nombre / Customer <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.nombre || ''}
+                onChange={e => set('nombre')(e.target.value)}
+                placeholder="Nombre completo"
+                className={`w-full bg-[#1e2535] border text-white px-3 py-3 text-sm focus:outline-none min-h-[48px] transition-colors ${
+                  nombreError ? 'border-red-500 focus:border-red-500' : 'border-white/10 focus:border-[#F5A623]'
+                }`}
+              />
+              {nombreError && <p className="text-red-400 text-xs font-mono mt-1">El nombre del cliente es obligatorio</p>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-mono text-white/40 uppercase tracking-wider mb-1.5">ID / Doc</label>
+                <Input value={form.id_cliente} onChange={set('id_cliente')} placeholder="ID, pasaporte..." />
+              </div>
+              <div>
+                <label className="block text-xs font-mono text-white/40 uppercase tracking-wider mb-1.5">Fecha</label>
+                <Input type="date" value={form.fecha} onChange={set('fecha')} />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono text-white/40 uppercase tracking-wider mb-1.5">Ciudad</label>
               <select
                 value={form.city}
                 onChange={e => set('city')(e.target.value)}
@@ -369,50 +436,52 @@ export default function VehicleIntake() {
                 <option value="">— Seleccionar —</option>
                 {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-            </Field>
-            <div id="field-nombre" className="col-span-2 sm:col-span-1">
-              <Field label="Cliente / Customer" required>
-                <input
-                  type="text"
-                  value={form.nombre || ''}
-                  onChange={e => set('nombre')(e.target.value)}
-                  placeholder="Nombre completo"
-                  className={`w-full bg-[#1e2535] border text-white px-3 py-3 text-sm focus:outline-none min-h-[48px] transition-colors ${
-                    nombreError ? 'border-red-500 focus:border-red-500' : 'border-white/10 focus:border-[#F5A623]'
-                  }`}
-                />
-                {nombreError && <p className="text-red-400 text-xs font-mono mt-1">El nombre del cliente es obligatorio</p>}
-              </Field>
             </div>
-            <Field label="ID / Documento">
-              <Input value={form.id_cliente} onChange={set('id_cliente')} placeholder="ID, pasaporte..." />
-            </Field>
-            <Field label="Año / Year">
-              <Input type="number" value={form.year} onChange={set('year')} placeholder="2020" />
-            </Field>
-            <Field label="Marca / Make">
-              <Input value={form.make} onChange={set('make')} placeholder="Toyota, Ford..." />
-            </Field>
-            <Field label="Modelo / Model">
-              <Input value={form.model} onChange={set('model')} placeholder="Tacoma, F-150..." />
-            </Field>
-            <Field label="Color">
-              <Input value={form.color} onChange={set('color')} placeholder="Blanco, Negro..." />
-            </Field>
-            <Field label="Placas / Plates">
-              <Input value={form.placas} onChange={set('placas')} placeholder="ABC-1234" className="uppercase" />
-            </Field>
-            <Field label="Odómetro / Odometer">
-              <Input type="number" value={form.odometer} onChange={set('odometer')} placeholder="50000" />
-            </Field>
           </div>
-          <div className="mt-3">
-            <Field label="VIN (máx 17 caracteres)">
+        </SectionCard>
+
+        {/* Vehículo section */}
+        <SectionCard
+          title="Vehículo"
+          badge={vehicleFilled}
+          open={openSection === 'vehiculo'}
+          onToggle={() => toggleSection('vehiculo')}
+        >
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-mono text-white/40 uppercase tracking-wider mb-1.5">Año / Year</label>
+                <Input type="number" value={form.year} onChange={set('year')} placeholder="2020" />
+              </div>
+              <div>
+                <label className="block text-xs font-mono text-white/40 uppercase tracking-wider mb-1.5">Color</label>
+                <Input value={form.color} onChange={set('color')} placeholder="Blanco..." />
+              </div>
+              <div>
+                <label className="block text-xs font-mono text-white/40 uppercase tracking-wider mb-1.5">Marca / Make</label>
+                <Input value={form.make} onChange={set('make')} placeholder="Toyota..." />
+              </div>
+              <div>
+                <label className="block text-xs font-mono text-white/40 uppercase tracking-wider mb-1.5">Modelo / Model</label>
+                <Input value={form.model} onChange={set('model')} placeholder="Tacoma..." />
+              </div>
+              <div>
+                <label className="block text-xs font-mono text-white/40 uppercase tracking-wider mb-1.5">Placas / Plates</label>
+                <Input value={form.placas} onChange={set('placas')} placeholder="ABC-1234" className="uppercase" />
+              </div>
+              <div>
+                <label className="block text-xs font-mono text-white/40 uppercase tracking-wider mb-1.5">Odómetro</label>
+                <Input type="number" value={form.odometer} onChange={set('odometer')} placeholder="50000" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono text-white/40 uppercase tracking-wider mb-1.5">VIN (máx 17)</label>
               <Input value={form.vin} onChange={set('vin')} placeholder="1HGBH41JXMN109186" maxLength={17} />
-            </Field>
-          </div>
-          <div className="mt-3">
-            <Field label="Nivel de gasolina / Fuel">
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono text-white/40 uppercase tracking-wider mb-1.5">Gasolina / Fuel</label>
               <div className="flex gap-1">
                 {FUEL_OPTIONS.map(f => (
                   <button key={f} type="button" onClick={() => set('gasolina')(f)}
@@ -421,30 +490,32 @@ export default function VehicleIntake() {
                     }`}>{f}</button>
                 ))}
               </div>
-            </Field>
-          </div>
-          <div className="mt-3">
-            <Field label="Notas / Notes">
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono text-white/40 uppercase tracking-wider mb-1.5">Notas / Notes</label>
               <textarea
                 value={form.notas}
                 onChange={e => set('notas')(e.target.value)}
-                rows={3}
+                rows={2}
                 placeholder="Observaciones generales..."
                 className="w-full bg-[#1e2535] border border-white/10 text-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#F5A623] resize-none"
               />
-            </Field>
+            </div>
           </div>
-        </section>
+        </SectionCard>
 
-        {/* Checklist */}
-        <section>
-          <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3 pb-2 border-b border-white/5">
-            Documentos Recibidos
-          </h2>
+        {/* Documentos section */}
+        <SectionCard
+          title="Documentos"
+          badge={checklistCount}
+          open={openSection === 'docs'}
+          onToggle={() => toggleSection('docs')}
+        >
           <div className="space-y-2">
             {CHECKLIST_ITEMS.map(({ key, label }) => (
               <button key={key} type="button" onClick={() => toggleChecklist(key)}
-                className="w-full flex items-center gap-3 p-3 bg-[#161b27] border border-white/10 hover:border-[#F5A623]/40 transition-all text-left min-h-[52px]"
+                className="w-full flex items-center gap-3 p-3 bg-[#0f1117] border border-white/10 hover:border-[#F5A623]/40 transition-all text-left min-h-[52px]"
               >
                 {form.checklist[key]
                   ? <CheckSquare size={20} className="text-[#22C55E] shrink-0" />
@@ -453,7 +524,7 @@ export default function VehicleIntake() {
               </button>
             ))}
           </div>
-        </section>
+        </SectionCard>
 
         {/* CTA */}
         <button
@@ -466,7 +537,7 @@ export default function VehicleIntake() {
         </button>
 
         {isAdmin() && (
-          <section className="pt-2 border-t border-white/5">
+          <div className="pt-2 border-t border-white/5">
             <button type="button" onClick={handleArchive} disabled={archiving}
               className={`w-full flex items-center justify-center gap-2 py-3 font-mono text-sm transition-all min-h-[48px] ${
                 confirmArchive
@@ -477,7 +548,7 @@ export default function VehicleIntake() {
               <Trash2 size={15} />
               {archiving ? 'Archivando...' : confirmArchive ? '¿Confirmar archivar intake? Tap de nuevo' : 'Archivar este intake'}
             </button>
-          </section>
+          </div>
         )}
       </div>
 

@@ -149,6 +149,8 @@ class VehicleInspection(Base):
 
     notas_finales = Column(Text, nullable=True)
 
+    folio = Column(String(20), nullable=True, unique=True, index=True)
+
     liability_pdf_path = Column(String(500), nullable=True)
     full_report_pdf_path = Column(String(500), nullable=True)
 

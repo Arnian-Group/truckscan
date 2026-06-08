@@ -268,8 +268,9 @@ def _generate_full_report_pdf(insp: VehicleInspection) -> str:
     story = []
 
     story.append(Paragraph("ARNIAN GROUP", title_style))
+    folio_str = f"  [{insp.folio}]" if insp.folio else ""
     story.append(Paragraph(
-        f"Vehicle Inspection Report — {insp.make or ''} {insp.model or ''} {insp.year or ''}",
+        f"Vehicle Inspection Report{folio_str} — {insp.make or ''} {insp.model or ''} {insp.year or ''}",
         sub_style
     ))
     story.append(HRFlowable(width="100%", thickness=1, color=amber))
@@ -278,8 +279,9 @@ def _generate_full_report_pdf(insp: VehicleInspection) -> str:
     def cell(v): return str(v) if v is not None else "—"
 
     veh_data = [
-        ["Date", cell(insp.fecha), "City", cell(insp.city), "Status", cell(insp.status.value)],
-        ["Customer", cell(insp.nombre), "ID", cell(insp.id_cliente), "Vehicle Type", cell(insp.vehicle_type.value)],
+        ["Folio", cell(insp.folio), "Date", cell(insp.fecha), "City", cell(insp.city)],
+        ["Status", cell(insp.status.value), "Vehicle Type", cell(insp.vehicle_type.value), "Customer", cell(insp.nombre)],
+        ["ID", cell(insp.id_cliente), "", "", "", ""],
         ["Year", cell(insp.year), "Make", cell(insp.make), "Model", cell(insp.model)],
         ["Color", cell(insp.color), "Plates", cell(insp.placas), "Odometer", cell(insp.odometer)],
         ["VIN", cell(insp.vin), "Fuel", cell(insp.gasolina), "", ""],
@@ -326,39 +328,6 @@ def _generate_full_report_pdf(insp: VehicleInspection) -> str:
         ]))
         story.append(dmg_table)
         story.append(Spacer(1, 0.15*inch))
-
-        # Photo thumbnails per damage
-        for d in damages:
-            if not d.photos:
-                continue
-            story.append(Paragraph(
-                f"{d.view.upper()} — {d.damage_type.title()}: {d.description or ''}",
-                label_style
-            ))
-            thumb_cells = []
-            for photo_path in d.photos[:4]:
-                prefix = "/uploads/"
-                rel = photo_path[len(prefix):] if photo_path.startswith(prefix) else photo_path.lstrip("/")
-                full = os.path.join(settings.UPLOADS_DIR, rel)
-                if os.path.exists(full):
-                    try:
-                        thumb_cells.append(Image(full, width=1.4*inch, height=1*inch))
-                    except Exception:
-                        thumb_cells.append(Paragraph("[photo]", body_style))
-                else:
-                    thumb_cells.append(Paragraph("[photo]", body_style))
-            while len(thumb_cells) < 4:
-                thumb_cells.append(Paragraph("", body_style))
-            photo_table = Table([thumb_cells], colWidths=[1.75*inch] * 4)
-            photo_table.setStyle(TableStyle([
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#eeeeee")),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ]))
-            story.append(photo_table)
-            story.append(Spacer(1, 0.1*inch))
     else:
         story.append(Paragraph("No damages recorded.", body_style))
 
@@ -516,11 +485,27 @@ def create_inspection(
     current_user: User = Depends(require_vehicle_agent),
 ):
     from datetime import date as date_type
+    ref_date = body.fecha or date_type.today()
+    year_month = ref_date.strftime("%Y%m")
+    prefix = f"VH-{year_month}-"
+    existing = db.query(VehicleInspection.folio).filter(
+        VehicleInspection.folio.like(f"{prefix}%")
+    ).all()
+    nums = []
+    for (f,) in existing:
+        if f:
+            suffix = f[len(prefix):]
+            if suffix.isdigit():
+                nums.append(int(suffix))
+    next_num = (max(nums) + 1) if nums else 1
+    folio = f"{prefix}{next_num:04d}"
+
     insp = VehicleInspection(
         id=uuid.uuid4(),
+        folio=folio,
         vehicle_type=body.vehicle_type,
         status=InspectionStatus.intake,
-        fecha=body.fecha or date_type.today(),
+        fecha=ref_date,
         city=body.city,
         nombre=body.nombre,
         id_cliente=body.id_cliente,

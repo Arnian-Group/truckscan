@@ -207,6 +207,7 @@ class VehicleDamageOut(BaseModel):
 
 class VehicleInspectionOut(BaseModel):
     id: UUID
+    folio: Optional[str]
     vehicle_type: VehicleType
     status: InspectionStatus
     fecha: Optional[date]
@@ -244,6 +245,7 @@ class VehicleInspectionOut(BaseModel):
 
 class VehicleInspectionListItem(BaseModel):
     id: UUID
+    folio: Optional[str]
     vehicle_type: VehicleType
     status: InspectionStatus
     fecha: Optional[date]

@@ -48,7 +48,7 @@ function InspectionCard({ insp, onClick, onArchive, confirmingArchive }) {
           </span>
         </div>
         <div className="flex justify-between text-xs text-white/25 font-mono mt-2">
-          <span>{insp.city || '—'}</span>
+          <span>{insp.folio ? <span className="text-[#F5A623]/50">{insp.folio}</span> : (insp.city || '—')}</span>
           <span>{new Date(insp.created_at).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}</span>
         </div>
       </motion.div>
