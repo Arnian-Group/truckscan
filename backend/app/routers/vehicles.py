@@ -426,7 +426,7 @@ def _generate_full_report_pdf(insp: VehicleInspection, base_url: Optional[str] =
     # ── Appendix: Liability Release ───────────────────────────────────────────
     story.append(PageBreak())
     story.append(Paragraph("APPENDIX A — LIABILITY RELEASE / DESCARGO DE RESPONSABILIDAD", label_style))
-    story.append(HRFlowable(width="100%", thickness=1, color=amber))
+    story.append(HRFlowable(width="100%", thickness=1, color=navy))
     story.append(Spacer(1, 0.15*inch))
 
     # Checklist
