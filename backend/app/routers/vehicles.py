@@ -73,6 +73,12 @@ async def _save_mercancias_photo(file: UploadFile, inspection_id: uuid.UUID) -> 
     return f"/uploads/vehicles/{inspection_id}/mercancias/{filename}"
 
 
+_LOGO_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "arnian_logo.png")
+_NAVY = "#1B3A7A"
+_NAVY_LIGHT = "#E8EDF5"
+_GRAY_LINE = "#C5CDD9"
+
+
 def _generate_liability_pdf(insp: VehicleInspection) -> str:
     from reportlab.lib.pagesizes import letter
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -90,24 +96,39 @@ def _generate_liability_pdf(insp: VehicleInspection) -> str:
                             leftMargin=0.75*inch, rightMargin=0.75*inch,
                             topMargin=0.75*inch, bottomMargin=0.75*inch)
     styles = getSampleStyleSheet()
-    amber = colors.HexColor("#F5A623")
-    dark = colors.HexColor("#0f1117")
+    navy = colors.HexColor(_NAVY)
 
-    title_style = ParagraphStyle("title", parent=styles["Title"],
-                                 textColor=dark, fontSize=18, spaceAfter=4)
     sub_style = ParagraphStyle("sub", parent=styles["Normal"],
-                               fontSize=10, textColor=colors.HexColor("#555555"), spaceAfter=12)
+                               fontSize=10, textColor=colors.HexColor("#555555"), spaceAfter=4)
     label_style = ParagraphStyle("label", parent=styles["Normal"],
-                                 fontSize=8, textColor=colors.HexColor("#777777"),
+                                 fontSize=8, textColor=colors.HexColor("#555555"),
                                  fontName="Helvetica-Bold")
     body_style = ParagraphStyle("body", parent=styles["Normal"], fontSize=8, spaceAfter=4)
     legal_style = ParagraphStyle("legal", parent=styles["Normal"], fontSize=7.5, leading=11)
 
     story = []
 
-    story.append(Paragraph("ARNIAN GROUP", title_style))
-    story.append(Paragraph("Vehicle Receiving — Liability Release / Descargo de Responsabilidad", sub_style))
-    story.append(HRFlowable(width="100%", thickness=1, color=amber))
+    # Header with logo
+    header_items = []
+    if os.path.isfile(_LOGO_PATH):
+        header_items.append(Image(_LOGO_PATH, width=1.8*inch, height=0.6*inch))
+    else:
+        header_items.append(Paragraph("ARNIAN GROUP", ParagraphStyle("t", parent=styles["Title"], fontSize=16)))
+    header_items.append(Paragraph(
+        "Vehicle Receiving — Liability Release<br/>"
+        "<font size='9' color='#777777'>Descargo de Responsabilidad</font>",
+        ParagraphStyle("hs", parent=styles["Normal"], fontSize=11, leading=15,
+                       textColor=colors.HexColor(_NAVY), fontName="Helvetica-Bold")
+    ))
+    header_table = Table([header_items], colWidths=[2*inch, 5*inch])
+    header_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(header_table)
+    story.append(HRFlowable(width="100%", thickness=2, color=navy))
     story.append(Spacer(1, 0.15*inch))
 
     # Vehicle info
@@ -129,10 +150,12 @@ def _generate_liability_pdf(insp: VehicleInspection) -> str:
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
         ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
-        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#f5f5f5")),
-        ("BACKGROUND", (2, 0), (2, -1), colors.HexColor("#f5f5f5")),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
-        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#fafafa")]),
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor(_NAVY_LIGHT)),
+        ("BACKGROUND", (2, 0), (2, -1), colors.HexColor(_NAVY_LIGHT)),
+        ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor(_NAVY)),
+        ("TEXTCOLOR", (2, 0), (2, -1), colors.HexColor(_NAVY)),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(_GRAY_LINE)),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8f9fc")]),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("TOPPADDING", (0, 0), (-1, -1), 4),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
@@ -156,8 +179,8 @@ def _generate_liability_pdf(insp: VehicleInspection) -> str:
     ] for k, v in doc_labels.items()]
     chk_table = Table([[Paragraph(row[0], body_style)] for row in chk_data], colWidths=[7*inch])
     chk_table.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
-        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#fafafa")]),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(_GRAY_LINE)),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8f9fc")]),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ("TOPPADDING", (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
@@ -165,7 +188,7 @@ def _generate_liability_pdf(insp: VehicleInspection) -> str:
     story.append(chk_table)
     story.append(Spacer(1, 0.15*inch))
 
-    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#cccccc")))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor(_GRAY_LINE)))
     story.append(Spacer(1, 0.1*inch))
 
     # Legal text
@@ -191,7 +214,7 @@ def _generate_liability_pdf(insp: VehicleInspection) -> str:
         colWidths=[3.5*inch, 3.5*inch]
     )
     legal_table.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(_GRAY_LINE)),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ("RIGHTPADDING", (0, 0), (-1, -1), 8),
@@ -233,8 +256,9 @@ def _generate_liability_pdf(insp: VehicleInspection) -> str:
         sig_table.setStyle(TableStyle([
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTSIZE", (0, 0), (-1, 0), 8),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f0f0")),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_NAVY_LIGHT)),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor(_NAVY)),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(_GRAY_LINE)),
             ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("LEFTPADDING", (0, 0), (-1, -1), 8),
             ("TOPPADDING", (0, 0), (-1, -1), 6),
@@ -269,27 +293,40 @@ def _generate_full_report_pdf(insp: VehicleInspection, base_url: Optional[str] =
                             leftMargin=0.75*inch, rightMargin=0.75*inch,
                             topMargin=0.75*inch, bottomMargin=0.75*inch)
     styles = getSampleStyleSheet()
-    amber = colors.HexColor("#F5A623")
+    navy = colors.HexColor(_NAVY)
 
     label_style = ParagraphStyle("label", parent=styles["Normal"],
-                                 fontSize=8, textColor=colors.HexColor("#777777"),
+                                 fontSize=8, textColor=colors.HexColor("#555555"),
                                  fontName="Helvetica-Bold")
     body_style = ParagraphStyle("body", parent=styles["Normal"], fontSize=8, spaceAfter=4)
     link_style = ParagraphStyle("link", parent=styles["Normal"], fontSize=8,
                                 textColor=colors.HexColor("#1a6fc4"), spaceAfter=4)
-    title_style = ParagraphStyle("title", parent=styles["Title"], fontSize=16, spaceAfter=4)
     sub_style = ParagraphStyle("sub", parent=styles["Normal"], fontSize=10,
-                               textColor=colors.HexColor("#555555"), spaceAfter=12)
+                               textColor=colors.HexColor(_NAVY), fontName="Helvetica-Bold", leading=15)
 
     story = []
 
-    story.append(Paragraph("ARNIAN GROUP", title_style))
     folio_str = f"  [{insp.folio}]" if insp.folio else ""
-    story.append(Paragraph(
-        f"Vehicle Inspection Report{folio_str} — {insp.make or ''} {insp.model or ''} {insp.year or ''}",
-        sub_style
-    ))
-    story.append(HRFlowable(width="100%", thickness=1, color=amber))
+    vehicle_str = " ".join(filter(None, [insp.make, insp.model, str(insp.year) if insp.year else None]))
+    header_text = f"Vehicle Inspection Report{folio_str}"
+    if vehicle_str:
+        header_text += f"<br/><font size='9' color='#555555'>{vehicle_str}</font>"
+
+    header_items = []
+    if os.path.isfile(_LOGO_PATH):
+        header_items.append(Image(_LOGO_PATH, width=1.8*inch, height=0.6*inch))
+    else:
+        header_items.append(Paragraph("ARNIAN GROUP", ParagraphStyle("t", parent=styles["Title"], fontSize=14)))
+    header_items.append(Paragraph(header_text, sub_style))
+    header_table = Table([header_items], colWidths=[2*inch, 5*inch])
+    header_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(header_table)
+    story.append(HRFlowable(width="100%", thickness=2, color=navy))
     story.append(Spacer(1, 0.1*inch))
 
     def cell(v): return str(v) if v is not None else "—"
@@ -308,8 +345,14 @@ def _generate_full_report_pdf(insp: VehicleInspection, base_url: Optional[str] =
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
         ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
         ("FONTNAME", (4, 0), (4, -1), "Helvetica-Bold"),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
-        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#fafafa")]),
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor(_NAVY_LIGHT)),
+        ("BACKGROUND", (2, 0), (2, -1), colors.HexColor(_NAVY_LIGHT)),
+        ("BACKGROUND", (4, 0), (4, -1), colors.HexColor(_NAVY_LIGHT)),
+        ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor(_NAVY)),
+        ("TEXTCOLOR", (2, 0), (2, -1), colors.HexColor(_NAVY)),
+        ("TEXTCOLOR", (4, 0), (4, -1), colors.HexColor(_NAVY)),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(_GRAY_LINE)),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8f9fc")]),
         ("TOPPADDING", (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
@@ -344,9 +387,9 @@ def _generate_full_report_pdf(insp: VehicleInspection, base_url: Optional[str] =
         dmg_table.setStyle(TableStyle([
             ("FONTSIZE", (0, 0), (-1, -1), 8),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f0f0")),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fafafa")]),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_NAVY_LIGHT)),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(_GRAY_LINE)),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8f9fc")]),
             ("TOPPADDING", (0, 0), (-1, -1), 4),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
         ]))
@@ -377,8 +420,8 @@ def _generate_full_report_pdf(insp: VehicleInspection, base_url: Optional[str] =
         colWidths=[7*inch]
     )
     chk_table.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
-        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#fafafa")]),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(_GRAY_LINE)),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8f9fc")]),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ("TOPPADDING", (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
@@ -408,7 +451,7 @@ def _generate_full_report_pdf(insp: VehicleInspection, base_url: Optional[str] =
         colWidths=[3.5*inch, 3.5*inch]
     )
     legal_table.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(_GRAY_LINE)),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ("RIGHTPADDING", (0, 0), (-1, -1), 8),
@@ -449,8 +492,8 @@ def _generate_full_report_pdf(insp: VehicleInspection, base_url: Optional[str] =
     sig_table.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, 0), 8),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f0f0")),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_NAVY_LIGHT)),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(_GRAY_LINE)),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ("TOPPADDING", (0, 0), (-1, -1), 6),
@@ -484,23 +527,39 @@ def _generate_mercancias_pdf(insp: VehicleInspection) -> str:
                             leftMargin=0.75*inch, rightMargin=0.75*inch,
                             topMargin=0.75*inch, bottomMargin=0.75*inch)
     styles = getSampleStyleSheet()
-    amber = colors.HexColor("#F5A623")
+    navy = colors.HexColor(_NAVY)
 
-    title_style = ParagraphStyle("title", parent=styles["Title"], fontSize=16, spaceAfter=4)
-    sub_style = ParagraphStyle("sub", parent=styles["Normal"], fontSize=10,
-                               textColor=colors.HexColor("#555555"), spaceAfter=12)
     label_style = ParagraphStyle("label", parent=styles["Normal"], fontSize=8,
-                                 textColor=colors.HexColor("#777777"), fontName="Helvetica-Bold")
+                                 textColor=colors.HexColor("#555555"), fontName="Helvetica-Bold")
     body_style = ParagraphStyle("body", parent=styles["Normal"], fontSize=9, spaceAfter=4, leading=14)
     name_style = ParagraphStyle("ns", parent=styles["Normal"], fontSize=8, spaceAfter=2)
+    sub_style = ParagraphStyle("sub", parent=styles["Normal"], fontSize=11,
+                               textColor=navy, fontName="Helvetica-Bold", leading=15)
 
     def cell(v): return str(v) if v is not None else "—"
 
     story = []
     folio_str = f"  [{insp.folio}]" if insp.folio else ""
-    story.append(Paragraph("ARNIAN GROUP", title_style))
-    story.append(Paragraph(f"Recibo de Mercancía{folio_str}", sub_style))
-    story.append(HRFlowable(width="100%", thickness=1, color=amber))
+
+    header_items = []
+    if os.path.isfile(_LOGO_PATH):
+        header_items.append(Image(_LOGO_PATH, width=1.8*inch, height=0.6*inch))
+    else:
+        header_items.append(Paragraph("ARNIAN GROUP", ParagraphStyle("t", parent=styles["Title"], fontSize=14)))
+    header_items.append(Paragraph(
+        f"Recibo de Mercancía{folio_str}<br/>"
+        "<font size='9' color='#555555'>Goods Receipt</font>",
+        sub_style
+    ))
+    header_table = Table([header_items], colWidths=[2*inch, 5*inch])
+    header_table.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(header_table)
+    story.append(HRFlowable(width="100%", thickness=2, color=navy))
     story.append(Spacer(1, 0.15*inch))
 
     info_data = [
@@ -513,8 +572,14 @@ def _generate_mercancias_pdf(insp: VehicleInspection) -> str:
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
         ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
         ("FONTNAME", (4, 0), (4, -1), "Helvetica-Bold"),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
-        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#fafafa")]),
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor(_NAVY_LIGHT)),
+        ("BACKGROUND", (2, 0), (2, -1), colors.HexColor(_NAVY_LIGHT)),
+        ("BACKGROUND", (4, 0), (4, -1), colors.HexColor(_NAVY_LIGHT)),
+        ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor(_NAVY)),
+        ("TEXTCOLOR", (2, 0), (2, -1), colors.HexColor(_NAVY)),
+        ("TEXTCOLOR", (4, 0), (4, -1), colors.HexColor(_NAVY)),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(_GRAY_LINE)),
+        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#f8f9fc")]),
         ("TOPPADDING", (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
@@ -528,7 +593,7 @@ def _generate_mercancias_pdf(insp: VehicleInspection) -> str:
         colWidths=[7*inch]
     )
     desc_table.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(_GRAY_LINE)),
         ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
         ("TOPPADDING", (0, 0), (-1, -1), 8), ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
     ]))
@@ -540,7 +605,7 @@ def _generate_mercancias_pdf(insp: VehicleInspection) -> str:
         story.append(Spacer(1, 0.05*inch))
         notes_table = Table([[Paragraph(insp.notas, body_style)]], colWidths=[7*inch])
         notes_table.setStyle(TableStyle([
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(_GRAY_LINE)),
             ("LEFTPADDING", (0, 0), (-1, -1), 8),
             ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ]))
@@ -555,7 +620,7 @@ def _generate_mercancias_pdf(insp: VehicleInspection) -> str:
         story.append(Spacer(1, 0.15*inch))
 
     story.append(Paragraph("FIRMAS / SIGNATURES", label_style))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#cccccc")))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor(_GRAY_LINE)))
     story.append(Spacer(1, 0.1*inch))
 
     def _decode_sig(b64: str):
@@ -584,8 +649,9 @@ def _generate_mercancias_pdf(insp: VehicleInspection) -> str:
     sig_table.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, 0), 8),
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f0f0f0")),
-        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(_NAVY_LIGHT)),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor(_NAVY)),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor(_GRAY_LINE)),
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ("TOPPADDING", (0, 0), (-1, -1), 6),

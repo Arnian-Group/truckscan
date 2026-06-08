@@ -40,9 +40,9 @@ export default function Dashboard() {
           {hasVehicles && (
             <ModuleCard
               icon={<Car size={48} className="text-[#F5A623]" />}
-              title="VEHÍCULOS"
+              title="RECIBOS"
               subtitle="Vehicle Receiving & Inspection"
-              badge="VEHICLES"
+              badge="RECIBOS"
               onClick={() => navigate('/vehicles')}
             />
           )}
