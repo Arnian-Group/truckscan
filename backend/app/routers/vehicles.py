@@ -1,6 +1,7 @@
 import os
 import uuid
 import base64
+import hashlib
 from datetime import date
 from io import BytesIO
 from typing import Optional, List
@@ -16,7 +17,7 @@ from ..schemas import (
     VehicleIntakeCreate, VehicleIntakeUpdate, SignBody,
     VehicleDamageUpdate, VehicleDamageOut,
     VehicleInspectionOut, VehicleInspectionListItem,
-    PaginatedResponse,
+    PaginatedResponse, ChecklistUpdate, CompleteBody,
 )
 from ..audit import log_action
 from ..config import settings
@@ -24,6 +25,11 @@ from ..config import settings
 router = APIRouter()
 
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+
+
+def _sig_hash(inspection_id: uuid.UUID, nombre: Optional[str], fecha, firma_data: str) -> str:
+    content = f"{inspection_id}|{nombre or ''}|{str(fecha or '')}|{firma_data}"
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -472,10 +478,16 @@ def sign_inspection(
     insp.firma_origen = body.firma_origen
     insp.nombre_firma_origen = body.nombre_firma_origen
     insp.fecha_firma_origen = body.fecha_firma_origen
+    insp.firma_hash_origen = _sig_hash(
+        inspection_id, body.nombre_firma_origen, body.fecha_firma_origen, body.firma_origen
+    )
     if body.firma_destino:
         insp.firma_destino = body.firma_destino
         insp.nombre_firma_destino = body.nombre_firma_destino
         insp.fecha_firma_destino = body.fecha_firma_destino
+        insp.firma_hash_destino = _sig_hash(
+            inspection_id, body.nombre_firma_destino, body.fecha_firma_destino, body.firma_destino
+        )
     insp.status = InspectionStatus.intake_complete
     db.commit()
 
@@ -593,15 +605,35 @@ def delete_damage(
     log_action(db, current_user.id, "damage_deleted", "vehicle_damage", str(damage_id))
 
 
+@router.patch("/{inspection_id}/checklist", response_model=VehicleInspectionOut)
+def update_checklist(
+    inspection_id: uuid.UUID,
+    body: ChecklistUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vehicle_agent),
+):
+    insp = _get_inspection(db, inspection_id)
+    if body.checklist is not None:
+        insp.checklist = body.checklist
+    if body.notas is not None:
+        insp.notas = body.notas
+    db.commit()
+    log_action(db, current_user.id, "vehicle_checklist_updated", "vehicle_inspection", str(insp.id))
+    return _get_inspection(db, inspection_id)
+
+
 @router.post("/{inspection_id}/complete", response_model=VehicleInspectionOut)
 def complete_inspection(
     inspection_id: uuid.UUID,
+    body: CompleteBody = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vehicle_agent),
 ):
     insp = _get_inspection(db, inspection_id)
     if insp.status == InspectionStatus.completed:
         return insp
+    if body and body.notas_finales:
+        insp.notas_finales = body.notas_finales
     insp.status = InspectionStatus.completed
     db.commit()
 

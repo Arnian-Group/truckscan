@@ -175,6 +175,15 @@ class VehicleDamageUpdate(BaseModel):
     description: Optional[str] = None
 
 
+class ChecklistUpdate(BaseModel):
+    checklist: Optional[dict] = None
+    notas: Optional[str] = None
+
+
+class CompleteBody(BaseModel):
+    notas_finales: Optional[str] = None
+
+
 class VehicleDamageOut(BaseModel):
     id: UUID
     inspection_id: UUID
@@ -211,9 +220,12 @@ class VehicleInspectionOut(BaseModel):
     firma_origen: Optional[str]
     nombre_firma_origen: Optional[str]
     fecha_firma_origen: Optional[date]
+    firma_hash_origen: Optional[str]
     firma_destino: Optional[str]
     nombre_firma_destino: Optional[str]
     fecha_firma_destino: Optional[date]
+    firma_hash_destino: Optional[str]
+    notas_finales: Optional[str]
     liability_pdf_path: Optional[str]
     full_report_pdf_path: Optional[str]
     created_by: Optional[UUID]

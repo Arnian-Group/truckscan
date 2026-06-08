@@ -1,9 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, FileText, Printer, CheckSquare, Square, ExternalLink, Trash2 } from 'lucide-react'
+import { Loader, FileText, Printer, CheckSquare, Square, ExternalLink, Trash2, Shield } from 'lucide-react'
 import Layout from '../components/Layout'
 import api from '../lib/api'
 import { isAdmin } from '../lib/auth'
+
+const CHECKLIST_ITEMS = [
+  { key: 'licencia',     label: 'Copia de Licencia' },
+  { key: 'circulacion',  label: 'Tarjeta de Circulación' },
+  { key: 'aseguranza',   label: 'Copia de Aseguranza' },
+  { key: 'cotizacion',   label: 'Cotización Firmada' },
+  { key: 'autorizacion', label: 'Carta de Autorización' },
+]
 
 const STATUS_LABELS = {
   intake: { label: 'INTAKE', color: 'text-[#F5A623] bg-[#F5A62322] border-[#F5A62340]' },
@@ -18,13 +26,6 @@ const DAMAGE_COLORS = {
   cracked: '#8B5CF6', missing: '#6B7280', other: '#F5A623',
 }
 
-const CHECKLIST_LABELS = {
-  licencia: 'Copia de Licencia',
-  circulacion: 'Tarjeta de Circulación',
-  aseguranza: 'Copia de Aseguranza',
-  cotizacion: 'Cotización Firmada',
-  autorizacion: 'Carta de Autorización',
-}
 
 async function openPDF(endpoint) {
   try {
@@ -50,10 +51,15 @@ export default function VehicleDetail() {
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [checklist, setChecklist] = useState({})
+  const [savingChecklist, setSavingChecklist] = useState(false)
   const admin = isAdmin()
 
   useEffect(() => {
-    api.get(`/vehicles/${id}`).then(({ data }) => setInsp(data)).catch(console.error).finally(() => setLoading(false))
+    api.get(`/vehicles/${id}`).then(({ data }) => {
+      setInsp(data)
+      setChecklist(data.checklist || {})
+    }).catch(console.error).finally(() => setLoading(false))
   }, [id])
 
   if (loading) {
@@ -67,10 +73,21 @@ export default function VehicleDetail() {
 
   const st = STATUS_LABELS[insp.status] || STATUS_LABELS.intake
   const damages = insp.damages || []
-  const checklist = insp.checklist || {}
   const STATIC_BASE = import.meta.env.VITE_API_URL || ''
 
   // Damage summary by type
+  async function handleSaveChecklist() {
+    setSavingChecklist(true)
+    try {
+      const { data } = await api.patch(`/vehicles/${id}/checklist`, { checklist })
+      setInsp(data)
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al guardar')
+    } finally {
+      setSavingChecklist(false)
+    }
+  }
+
   async function handleDelete() {
     setDeleting(true)
     try {
@@ -89,12 +106,6 @@ export default function VehicleDetail() {
     return acc
   }, {})
 
-  // Group by view
-  const dmgByView = damages.reduce((acc, d) => {
-    acc[d.view] = acc[d.view] || []
-    acc[d.view].push(d)
-    return acc
-  }, {})
 
   return (
     <Layout title="Detalle" back="/vehicles">
@@ -199,19 +210,31 @@ export default function VehicleDetail() {
           )}
         </section>
 
-        {/* Checklist */}
+        {/* Checklist — editable */}
         <section>
-          <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3">Documentos</h2>
-          <div className="space-y-1.5">
-            {Object.entries(CHECKLIST_LABELS).map(([key, label]) => (
-              <div key={key} className="flex items-center gap-3 px-3 py-2.5 bg-[#161b27] border border-white/5">
+          <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3">Documentos Recibidos</h2>
+          <div className="space-y-1.5 mb-3">
+            {CHECKLIST_ITEMS.map(({ key, label }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setChecklist(prev => ({ ...prev, [key]: !prev[key] }))}
+                className="w-full flex items-center gap-3 px-3 py-2.5 bg-[#161b27] border border-white/5 hover:border-white/20 transition-colors text-left"
+              >
                 {checklist[key]
                   ? <CheckSquare size={16} className="text-[#22C55E] shrink-0" />
                   : <Square size={16} className="text-white/20 shrink-0" />}
-                <span className="text-sm text-white/60">{label}</span>
-              </div>
+                <span className="text-sm text-white/70">{label}</span>
+              </button>
             ))}
           </div>
+          <button
+            onClick={handleSaveChecklist}
+            disabled={savingChecklist}
+            className="w-full py-2.5 border border-white/10 text-white/50 font-mono text-xs hover:text-white hover:border-white/30 transition-colors disabled:opacity-40"
+          >
+            {savingChecklist ? 'Guardando...' : 'Guardar documentos'}
+          </button>
         </section>
 
         {/* Signatures */}
@@ -224,6 +247,14 @@ export default function VehicleDetail() {
                   <p className="text-[10px] font-mono text-white/30 mb-2">ORIGEN</p>
                   <img src={insp.firma_origen} alt="Firma origen" className="w-full h-16 object-contain bg-[#1e2535]" />
                   {insp.nombre_firma_origen && <p className="text-xs text-white/50 mt-1.5 truncate">{insp.nombre_firma_origen}</p>}
+                  {insp.firma_hash_origen && (
+                    <div className="flex items-center gap-1.5 mt-2 bg-[#0d1520] border border-[#22C55E]/20 px-2 py-1">
+                      <Shield size={10} className="text-[#22C55E] shrink-0" />
+                      <span className="text-[9px] font-mono text-[#22C55E]/70 truncate" title={insp.firma_hash_origen}>
+                        {insp.firma_hash_origen.slice(0, 16).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
               {insp.firma_destino && (
@@ -231,6 +262,14 @@ export default function VehicleDetail() {
                   <p className="text-[10px] font-mono text-white/30 mb-2">DESTINO</p>
                   <img src={insp.firma_destino} alt="Firma destino" className="w-full h-16 object-contain bg-[#1e2535]" />
                   {insp.nombre_firma_destino && <p className="text-xs text-white/50 mt-1.5 truncate">{insp.nombre_firma_destino}</p>}
+                  {insp.firma_hash_destino && (
+                    <div className="flex items-center gap-1.5 mt-2 bg-[#0d1520] border border-[#22C55E]/20 px-2 py-1">
+                      <Shield size={10} className="text-[#22C55E] shrink-0" />
+                      <span className="text-[9px] font-mono text-[#22C55E]/70 truncate" title={insp.firma_hash_destino}>
+                        {insp.firma_hash_destino.slice(0, 16).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -281,8 +320,16 @@ export default function VehicleDetail() {
         {/* Notes */}
         {insp.notas && (
           <section>
-            <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-2">Notas</h2>
+            <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-2">Notas de intake</h2>
             <p className="text-white/60 text-sm bg-[#161b27] border border-white/5 p-3">{insp.notas}</p>
+          </section>
+        )}
+
+        {/* Final notes */}
+        {insp.notas_finales && (
+          <section>
+            <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-2">Nota final</h2>
+            <p className="text-white/60 text-sm bg-[#161b27] border border-white/5 p-3">{insp.notas_finales}</p>
           </section>
         )}
       </div>

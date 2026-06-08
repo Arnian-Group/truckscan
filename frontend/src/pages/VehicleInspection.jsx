@@ -25,6 +25,7 @@ export default function VehicleInspection() {
   const [savingDamage, setSavingDamage] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [confirmFinish, setConfirmFinish] = useState(false)
+  const [notasFinales, setNotasFinales] = useState('')
   const [selectedDamage, setSelectedDamage] = useState(null)
 
   async function load() {
@@ -84,7 +85,7 @@ export default function VehicleInspection() {
   async function handleComplete() {
     setCompleting(true)
     try {
-      await api.post(`/vehicles/${id}/complete`)
+      await api.post(`/vehicles/${id}/complete`, { notas_finales: notasFinales || null })
       navigate(`/vehicles/${id}`)
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al completar')
@@ -256,9 +257,16 @@ export default function VehicleInspection() {
               initial={{ scale: 0.9 }} animate={{ scale: 1 }} exit={{ scale: 0.9 }}
             >
               <h3 className="font-bold text-lg mb-2">¿Finalizar Inspección?</h3>
-              <p className="text-white/50 text-sm mb-6">
-                Una vez finalizado no se pueden agregar más daños. Se generará el reporte PDF completo.
+              <p className="text-white/50 text-sm mb-4">
+                Una vez finalizado no se pueden agregar más observaciones. Se generará el reporte PDF.
               </p>
+              <textarea
+                value={notasFinales}
+                onChange={e => setNotasFinales(e.target.value)}
+                placeholder="Nota final (opcional)..."
+                rows={2}
+                className="w-full bg-[#1e2535] border border-white/10 text-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#F5A623] resize-none mb-4"
+              />
               <div className="flex gap-3">
                 <button
                   onClick={() => setConfirmFinish(false)}

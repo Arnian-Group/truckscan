@@ -140,9 +140,14 @@ class VehicleInspection(Base):
     firma_origen = Column(Text, nullable=True)
     nombre_firma_origen = Column(String(255), nullable=True)
     fecha_firma_origen = Column(Date, nullable=True)
+    firma_hash_origen = Column(String(64), nullable=True)
+
     firma_destino = Column(Text, nullable=True)
     nombre_firma_destino = Column(String(255), nullable=True)
     fecha_firma_destino = Column(Date, nullable=True)
+    firma_hash_destino = Column(String(64), nullable=True)
+
+    notas_finales = Column(Text, nullable=True)
 
     liability_pdf_path = Column(String(500), nullable=True)
     full_report_pdf_path = Column(String(500), nullable=True)
