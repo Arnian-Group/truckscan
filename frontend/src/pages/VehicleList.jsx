@@ -91,7 +91,7 @@ const PAGE_SIZE = 20
 
 export default function VehicleList() {
   const navigate = useNavigate()
-  const [view,          setView]         = useState('list') // 'list' | 'calendar'
+  const [view,          setView]         = useState(() => localStorage.getItem('vehicles_view') || 'list')
   const [items,         setItems]        = useState([])
   const [loading,       setLoading]      = useState(true)
   const [statusFilter,  setStatusFilter] = useState('')
@@ -178,7 +178,7 @@ export default function VehicleList() {
         {/* View toggle */}
         <div className="ml-auto flex gap-1 flex-shrink-0">
           <button
-            onClick={() => setView('list')}
+            onClick={() => { setView('list'); localStorage.setItem('vehicles_view', 'list') }}
             title="Vista lista"
             className={`min-h-[36px] min-w-[36px] flex items-center justify-center transition-all ${
               view === 'list' ? 'bg-[#F5A623] text-[#0f1117]' : 'border border-white/10 text-white/40 hover:text-white'
@@ -187,7 +187,7 @@ export default function VehicleList() {
             <LayoutList size={15} />
           </button>
           <button
-            onClick={() => setView('calendar')}
+            onClick={() => { setView('calendar'); localStorage.setItem('vehicles_view', 'calendar') }}
             title="Vista calendario"
             className={`min-h-[36px] min-w-[36px] flex items-center justify-center transition-all ${
               view === 'calendar' ? 'bg-[#F5A623] text-[#0f1117]' : 'border border-white/10 text-white/40 hover:text-white'
