@@ -1,17 +1,31 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Car, RefreshCw, ChevronLeft, ChevronRight, Trash2, Search, X } from 'lucide-react'
+import { Plus, Car, RefreshCw, ChevronLeft, ChevronRight, Trash2, Search, X, LayoutList, CalendarDays } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Layout from '../components/Layout'
+import VehicleCalendar from '../components/VehicleCalendar'
 import api from '../lib/api'
 import { isAdmin } from '../lib/auth'
 
 const STATUS_LABELS = {
-  intake: { label: 'INTAKE', color: 'text-[#F5A623] bg-[#F5A62322] border-[#F5A62340]' },
-  intake_complete: { label: 'FIRMADO', color: 'text-blue-400 bg-blue-400/10 border-blue-400/30' },
-  in_inspection: { label: 'INSPECCIÓN', color: 'text-purple-400 bg-purple-400/10 border-purple-400/30' },
-  completed: { label: 'COMPLETADO', color: 'text-[#22C55E] bg-[#22C55E22] border-[#22C55E40]' },
+  intake:          { label: 'INTAKE',     color: 'text-[#F5A623] bg-[#F5A62322] border-[#F5A62340]' },
+  intake_complete: { label: 'FIRMADO',    color: 'text-blue-400 bg-blue-400/10 border-blue-400/30' },
+  in_inspection:   { label: 'INSPECCIÓN', color: 'text-purple-400 bg-purple-400/10 border-purple-400/30' },
+  completed:       { label: 'COMPLETADO', color: 'text-[#22C55E] bg-[#22C55E22] border-[#22C55E40]' },
 }
+
+const VEHICLE_TYPES = [
+  { value: '',            label: 'TODOS' },
+  { value: 'sedan',       label: 'SEDAN' },
+  { value: 'pickup',      label: 'PICKUP' },
+  { value: 'van',         label: 'VAN' },
+  { value: 'golf',        label: 'GOLF' },
+  { value: 'canam',       label: 'CANAM' },
+  { value: 'motorcycle',  label: 'MOTO' },
+  { value: 'atv',         label: 'ATV' },
+  { value: 'racer',       label: 'RACER' },
+  { value: 'mercancias',  label: 'MERCANCÍA' },
+]
 
 function nextRoute(insp) {
   if (insp.vehicle_type === 'mercancias' && insp.status !== 'completed') return `/vehicles/${insp.id}/mercancias`
@@ -77,14 +91,16 @@ const PAGE_SIZE = 20
 
 export default function VehicleList() {
   const navigate = useNavigate()
-  const [items, setItems] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState('')
-  const [page, setPage] = useState(1)
-  const [total, setTotal] = useState(0)
+  const [view,          setView]         = useState('list') // 'list' | 'calendar'
+  const [items,         setItems]        = useState([])
+  const [loading,       setLoading]      = useState(true)
+  const [statusFilter,  setStatusFilter] = useState('')
+  const [typeFilter,    setTypeFilter]   = useState('')
+  const [page,          setPage]         = useState(1)
+  const [total,         setTotal]        = useState(0)
   const [confirmArchiveId, setConfirmArchiveId] = useState(null)
-  const [searchInput, setSearchInput] = useState('')
-  const [search, setSearch] = useState('')
+  const [searchInput,   setSearchInput]  = useState('')
+  const [search,        setSearch]       = useState('')
   const debounceRef = useRef(null)
 
   function handleSearchChange(val) {
@@ -102,12 +118,13 @@ export default function VehicleList() {
     setPage(1)
   }
 
-  async function load(p = page, filter = statusFilter, q = search) {
+  async function load(p = page, filter = statusFilter, type = typeFilter, q = search) {
     setLoading(true)
     try {
       const params = { page: p, page_size: PAGE_SIZE }
-      if (filter) params.status = filter
-      if (q) params.search = q
+      if (filter) params.status       = filter
+      if (type)   params.vehicle_type = type
+      if (q)      params.search       = q
       const { data } = await api.get('/vehicles', { params })
       setItems(data?.items ?? [])
       setTotal(data?.total ?? 0)
@@ -118,8 +135,8 @@ export default function VehicleList() {
     }
   }
 
-  useEffect(() => { setPage(1); load(1, statusFilter, search) }, [statusFilter])
-  useEffect(() => { load(page, statusFilter, search) }, [page, search])
+  useEffect(() => { setPage(1); load(1, statusFilter, typeFilter, search) }, [statusFilter, typeFilter])
+  useEffect(() => { load(page, statusFilter, typeFilter, search) }, [page, search])
 
   async function handleArchive(inspId) {
     if (confirmArchiveId !== inspId) {
@@ -141,6 +158,8 @@ export default function VehicleList() {
 
   return (
     <Layout title="Recibos">
+
+      {/* ── Row 1: Status filters + view toggle + refresh ── */}
       <div className="px-4 py-3 flex gap-2 border-b border-white/5 overflow-x-auto">
         {['', 'intake', 'intake_complete', 'in_inspection', 'completed'].map(f => (
           <button
@@ -155,15 +174,54 @@ export default function VehicleList() {
             {f === '' ? 'TODOS' : STATUS_LABELS[f]?.label || f}
           </button>
         ))}
-        <button
-          onClick={() => load(page, statusFilter)}
-          className="ml-auto p-1.5 text-white/40 hover:text-white min-h-[36px] min-w-[36px] flex items-center justify-center flex-shrink-0"
-        >
-          <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-        </button>
+
+        {/* View toggle */}
+        <div className="ml-auto flex gap-1 flex-shrink-0">
+          <button
+            onClick={() => setView('list')}
+            title="Vista lista"
+            className={`min-h-[36px] min-w-[36px] flex items-center justify-center transition-all ${
+              view === 'list' ? 'bg-[#F5A623] text-[#0f1117]' : 'border border-white/10 text-white/40 hover:text-white'
+            }`}
+          >
+            <LayoutList size={15} />
+          </button>
+          <button
+            onClick={() => setView('calendar')}
+            title="Vista calendario"
+            className={`min-h-[36px] min-w-[36px] flex items-center justify-center transition-all ${
+              view === 'calendar' ? 'bg-[#F5A623] text-[#0f1117]' : 'border border-white/10 text-white/40 hover:text-white'
+            }`}
+          >
+            <CalendarDays size={15} />
+          </button>
+          <button
+            onClick={() => load(page, statusFilter, typeFilter)}
+            className="min-h-[36px] min-w-[36px] flex items-center justify-center text-white/40 hover:text-white"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
 
-      {/* Search bar */}
+      {/* ── Row 2: Vehicle type filter ── */}
+      <div className="px-4 py-2 flex gap-1.5 border-b border-white/5 overflow-x-auto">
+        {VEHICLE_TYPES.map(t => (
+          <button
+            key={t.value}
+            onClick={() => setTypeFilter(t.value)}
+            className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider transition-colors min-h-[30px] whitespace-nowrap flex-shrink-0 ${
+              typeFilter === t.value
+                ? 'bg-white/15 text-white border border-white/30'
+                : 'text-white/30 border border-white/8 hover:text-white/60'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Row 3: Search bar ── */}
       <div className="px-4 py-2.5 border-b border-white/5">
         <div className="relative flex items-center">
           <Search size={14} className="absolute left-3 text-white/30 pointer-events-none" />
@@ -182,53 +240,62 @@ export default function VehicleList() {
         </div>
       </div>
 
-      <div className="px-4 py-4 space-y-3 pb-28">
-        {loading ? (
-          <div className="flex justify-center py-16">
-            <div className="w-8 h-8 border-2 border-[#F5A623] border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : items.length === 0 ? (
-          <div className="text-center py-16 text-white/30">
-            <Car size={40} className="mx-auto mb-3 opacity-20" />
-            <p className="font-mono text-sm">{search ? `Sin resultados para "${search}"` : 'No hay inspecciones'}</p>
-            {search && (
-              <button onClick={clearSearch} className="mt-2 text-xs text-[#F5A623]/60 hover:text-[#F5A623] font-mono">
-                Limpiar búsqueda
-              </button>
-            )}
-          </div>
-        ) : (
-          items.map(i => (
-            <InspectionCard
-              key={i.id}
-              insp={i}
-              onClick={() => navigate(nextRoute(i))}
-              onArchive={handleArchive}
-              confirmingArchive={confirmArchiveId === i.id}
-            />
-          ))
-        )}
+      {/* ── Content: Calendar or List ── */}
+      {view === 'calendar' ? (
+        <VehicleCalendar
+          statusFilter={statusFilter}
+          vehicleTypeFilter={typeFilter}
+          search={search}
+        />
+      ) : (
+        <div className="px-4 py-4 space-y-3 pb-28">
+          {loading ? (
+            <div className="flex justify-center py-16">
+              <div className="w-8 h-8 border-2 border-[#F5A623] border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : items.length === 0 ? (
+            <div className="text-center py-16 text-white/30">
+              <Car size={40} className="mx-auto mb-3 opacity-20" />
+              <p className="font-mono text-sm">{search ? `Sin resultados para "${search}"` : 'No hay inspecciones'}</p>
+              {search && (
+                <button onClick={clearSearch} className="mt-2 text-xs text-[#F5A623]/60 hover:text-[#F5A623] font-mono">
+                  Limpiar búsqueda
+                </button>
+              )}
+            </div>
+          ) : (
+            items.map(i => (
+              <InspectionCard
+                key={i.id}
+                insp={i}
+                onClick={() => navigate(nextRoute(i))}
+                onArchive={handleArchive}
+                confirmingArchive={confirmArchiveId === i.id}
+              />
+            ))
+          )}
 
-        {!loading && totalPages > 1 && (
-          <div className="flex items-center justify-between pt-2">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-mono border border-white/10 disabled:opacity-30 hover:border-[#F5A623] min-h-[44px]"
-            >
-              <ChevronLeft size={16} />Anterior
-            </button>
-            <span className="text-xs font-mono text-white/40">{page}/{totalPages} <span className="text-white/20">({total})</span></span>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages}
-              className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-mono border border-white/10 disabled:opacity-30 hover:border-[#F5A623] min-h-[44px]"
-            >
-              Siguiente<ChevronRight size={16} />
-            </button>
-          </div>
-        )}
-      </div>
+          {!loading && totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-mono border border-white/10 disabled:opacity-30 hover:border-[#F5A623] min-h-[44px]"
+              >
+                <ChevronLeft size={16} />Anterior
+              </button>
+              <span className="text-xs font-mono text-white/40">{page}/{totalPages} <span className="text-white/20">({total})</span></span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="flex items-center gap-1.5 px-4 py-2.5 text-sm font-mono border border-white/10 disabled:opacity-30 hover:border-[#F5A623] min-h-[44px]"
+              >
+                Siguiente<ChevronRight size={16} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       <button
         onClick={() => navigate('/vehicles/new')}

@@ -2,7 +2,7 @@ import os
 import uuid
 import base64
 import hashlib
-from datetime import date
+from datetime import date, datetime
 from io import BytesIO
 from typing import Optional, List
 
@@ -711,6 +711,8 @@ def list_inspections(
     vehicle_type: Optional[str] = None,
     city: Optional[str] = None,
     search: Optional[str] = None,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vehicle_agent),
 ):
@@ -721,6 +723,10 @@ def list_inspections(
         q = q.filter(VehicleInspection.vehicle_type == vehicle_type)
     if city:
         q = q.filter(VehicleInspection.city == city)
+    if date_from:
+        q = q.filter(VehicleInspection.created_at >= date_from)
+    if date_to:
+        q = q.filter(VehicleInspection.created_at <= date_to)
     if search:
         term = f"%{search.strip()}%"
         q = q.filter(
