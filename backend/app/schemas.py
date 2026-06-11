@@ -269,7 +269,7 @@ class VehicleInspectionListItem(BaseModel):
 # Share links
 class SharedLinkCreate(BaseModel):
     inspection_id: UUID
-    label: Optional[str] = None
+    label: str
     expires_hours: Optional[int] = None  # None = never expires
 
 

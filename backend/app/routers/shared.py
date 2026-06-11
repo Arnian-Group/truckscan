@@ -91,7 +91,7 @@ def create_link(
         token=secrets.token_urlsafe(9),
         inspection_id=body.inspection_id,
         created_by=current_user.id,
-        label=body.label or None,
+        label=body.label,
         expires_at=expires_at,
     )
     db.add(link)

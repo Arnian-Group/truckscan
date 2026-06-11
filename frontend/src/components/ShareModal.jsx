@@ -146,7 +146,7 @@ export default function ShareModal({ inspectionId, onClose }) {
               type="text"
               value={label}
               onChange={e => setLabel(e.target.value)}
-              placeholder="Etiqueta (opcional)"
+              placeholder="Etiqueta (ej: Cliente Nombre / Motivo)"
               className="w-full bg-[#1e2535] border border-white/10 text-white text-sm px-3 py-2.5 focus:outline-none focus:border-[#F5A623] placeholder-white/20 font-mono"
             />
             <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
@@ -166,8 +166,8 @@ export default function ShareModal({ inspectionId, onClose }) {
             </div>
             <button
               onClick={create}
-              disabled={creating}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-[#F5A623] text-[#0f1117] font-bold text-sm hover:bg-[#e8961f] disabled:opacity-60 transition-colors"
+              disabled={creating || !label.trim()}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-[#F5A623] text-[#0f1117] font-bold text-sm hover:bg-[#e8961f] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <Plus size={16} />
               {creating ? 'Creando...' : 'Crear enlace'}
