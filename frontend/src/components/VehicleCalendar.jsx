@@ -117,6 +117,11 @@ function MiniCard({ insp, onClick }) {
               <span className="text-[10px] font-mono text-[#F5A623]/50 shrink-0">{insp.folio}</span>
             )}
           </div>
+          {insp.vehicle_type !== 'mercancias' && (insp.make || insp.model) && (
+            <p className="text-[11px] text-white/65 font-mono truncate">
+              {[insp.make, insp.model].filter(Boolean).join(' ')}
+            </p>
+          )}
           <p className="text-[11px] text-white/40 font-mono truncate">
             {insp.nombre || insp.nombre_entrega || 'Sin cliente'}
           </p>
