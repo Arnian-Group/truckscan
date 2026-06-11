@@ -87,7 +87,7 @@ export default function Login() {
         </button>
       </form>
 
-      <p className="mt-8 text-white/20 text-xs font-mono">San Diego → Tijuana Logistics</p>
+      <p className="mt-8 text-white/20 text-xs font-mono">ARNIAN TRUCKSCAN</p>
     </div>
   )
 }

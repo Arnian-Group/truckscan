@@ -148,7 +148,7 @@ export default function SharedView() {
         </div>
         <h1 className="text-xl font-bold mb-2">{isGone ? 'Enlace no disponible' : 'Enlace inválido'}</h1>
         <p className="text-white/40 font-mono text-sm max-w-xs">{error}</p>
-        <p className="mt-6 text-xs text-white/20 font-mono">TruckScan · Arnian Group</p>
+        <p className="mt-6 text-xs text-white/20 font-mono">ARNIAN TRUCKSCAN</p>
       </div>
     )
   }
@@ -357,7 +357,7 @@ export default function SharedView() {
         )}
 
         <p className="text-center text-xs text-white/15 font-mono pt-4">
-          TruckScan · Arnian Group — San Diego ↔ Tijuana
+          ARNIAN TRUCKSCAN — San Diego ↔ Tijuana
         </p>
       </main>
 

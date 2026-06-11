@@ -162,7 +162,7 @@ def _generate_liability_pdf(insp: VehicleInspection) -> str:
     if _logo:
         header_items.append(_make_logo_image(_logo))
     else:
-        header_items.append(Paragraph("ARNIAN GROUP", ParagraphStyle("t", parent=styles["Title"], fontSize=16)))
+        header_items.append(Paragraph("ARNIAN TRUCKSCAN", ParagraphStyle("t", parent=styles["Title"], fontSize=16)))
     header_items.append(Paragraph(
         "Vehicle Receiving — Liability Release<br/>"
         "<font size='9' color='#777777'>Descargo de Responsabilidad</font>",
@@ -366,7 +366,7 @@ def _generate_full_report_pdf(insp: VehicleInspection, base_url: Optional[str] =
     if _logo:
         header_items.append(_make_logo_image(_logo))
     else:
-        header_items.append(Paragraph("ARNIAN GROUP", ParagraphStyle("t", parent=styles["Title"], fontSize=14)))
+        header_items.append(Paragraph("ARNIAN TRUCKSCAN", ParagraphStyle("t", parent=styles["Title"], fontSize=14)))
     header_items.append(Paragraph(header_text, sub_style))
     header_table = Table([header_items], colWidths=[2*inch, 5*inch])
     header_table.setStyle(TableStyle([
@@ -596,7 +596,7 @@ def _generate_mercancias_pdf(insp: VehicleInspection) -> str:
     if _logo:
         header_items.append(_make_logo_image(_logo))
     else:
-        header_items.append(Paragraph("ARNIAN GROUP", ParagraphStyle("t", parent=styles["Title"], fontSize=14)))
+        header_items.append(Paragraph("ARNIAN TRUCKSCAN", ParagraphStyle("t", parent=styles["Title"], fontSize=14)))
     header_items.append(Paragraph(
         f"Recibo de Mercancía{folio_str}<br/>"
         "<font size='9' color='#555555'>Goods Receipt</font>",

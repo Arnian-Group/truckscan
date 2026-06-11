@@ -48,7 +48,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        <p className="mt-12 text-white/15 text-xs font-mono">ARNIAN GROUP — San Diego ↔ Tijuana</p>
+        <p className="mt-12 text-white/15 text-xs font-mono">ARNIAN TRUCKSCAN</p>
       </div>
     </Layout>
   )
