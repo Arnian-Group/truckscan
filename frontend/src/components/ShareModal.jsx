@@ -57,7 +57,7 @@ export default function ShareModal({ inspectionId, onClose }) {
     setLoading(true)
     try {
       const { data } = await api.get(`/shared/links/inspection/${inspectionId}`)
-      setLinks(data)
+      setLinks(Array.isArray(data) ? data : [])
     } catch (e) {
       console.error(e)
     } finally {
@@ -99,8 +99,6 @@ export default function ShareModal({ inspectionId, onClose }) {
       setRevoking(null)
     }
   }
-
-  const activeLinks = links.filter(l => !l.revoked_at && (!l.expires_at || new Date(l.expires_at) > new Date()))
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-0 sm:px-4">

@@ -47,7 +47,7 @@ export default function ShareLinks() {
     setLoading(true)
     try {
       const { data } = await api.get('/shared/links')
-      setLinks(data)
+      setLinks(Array.isArray(data) ? data : [])
     } catch (e) {
       console.error(e)
     } finally {
