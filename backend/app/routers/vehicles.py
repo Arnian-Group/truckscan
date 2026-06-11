@@ -47,6 +47,19 @@ def _get_inspection(db: Session, inspection_id: uuid.UUID) -> VehicleInspection:
     return insp
 
 
+def _get_inspection_any(db: Session, inspection_id: uuid.UUID) -> VehicleInspection:
+    """Same as _get_inspection but also returns soft-deleted records (read-only views)."""
+    insp = (
+        db.query(VehicleInspection)
+        .options(joinedload(VehicleInspection.damages))
+        .filter(VehicleInspection.id == inspection_id)
+        .first()
+    )
+    if not insp:
+        raise HTTPException(status_code=404, detail="Inspección no encontrada")
+    return insp
+
+
 async def _save_photo(file: UploadFile, inspection_id: uuid.UUID, damage_id: uuid.UUID) -> str:
     ext = "jpg"
     if file.filename and "." in file.filename:
@@ -713,10 +726,11 @@ def list_inspections(
     search: Optional[str] = None,
     date_from: Optional[datetime] = None,
     date_to: Optional[datetime] = None,
+    archived: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vehicle_agent),
 ):
-    q = db.query(VehicleInspection).filter(VehicleInspection.is_deleted == False)
+    q = db.query(VehicleInspection).filter(VehicleInspection.is_deleted == archived)
     if status:
         q = q.filter(VehicleInspection.status == status)
     if vehicle_type:
@@ -809,7 +823,7 @@ def get_inspection(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vehicle_agent),
 ):
-    insp = _get_inspection(db, inspection_id)
+    insp = _get_inspection_any(db, inspection_id)
     log_action(db, current_user.id, "vehicle_inspection_viewed", "vehicle_inspection", str(insp.id))
     return insp
 

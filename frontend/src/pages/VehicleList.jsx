@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Car, RefreshCw, ChevronLeft, ChevronRight, Trash2, Search, X, LayoutList, CalendarDays } from 'lucide-react'
+import { Plus, Car, RefreshCw, ChevronLeft, ChevronRight, Trash2, Search, X, LayoutList, CalendarDays, Archive } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import VehicleCalendar from '../components/VehicleCalendar'
@@ -34,15 +34,17 @@ function nextRoute(insp) {
   return `/vehicles/${insp.id}`
 }
 
-function InspectionCard({ insp, onClick, onArchive, confirmingArchive }) {
+function InspectionCard({ insp, onClick, onArchive, confirmingArchive, showArchiveBtn = true }) {
   const st = STATUS_LABELS[insp.status] || STATUS_LABELS.intake
-  const canArchive = isAdmin() && (insp.status === 'intake' || insp.status === 'intake_complete')
+  const canArchive = showArchiveBtn && isAdmin() && (insp.status === 'intake' || insp.status === 'intake_complete')
   return (
     <div className="relative">
       <motion.div
         onClick={onClick}
         whileTap={{ scale: 0.98 }}
-        className="w-full bg-[#161b27] border border-white/10 p-4 text-left hover:border-[#F5A623]/40 active:scale-98 transition-all cursor-pointer"
+        className={`w-full bg-[#161b27] border p-4 text-left hover:border-[#F5A623]/40 active:scale-98 transition-all cursor-pointer ${
+          insp.is_deleted ? 'border-white/5 opacity-70' : 'border-white/10'
+        }`}
       >
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="flex-1 min-w-0">
@@ -92,6 +94,7 @@ const PAGE_SIZE = 20
 export default function VehicleList() {
   const navigate = useNavigate()
   const [view,          setView]         = useState(() => localStorage.getItem('vehicles_view') || 'list')
+  const [archived,      setArchived]     = useState(false)
   const [items,         setItems]        = useState([])
   const [loading,       setLoading]      = useState(true)
   const [statusFilter,  setStatusFilter] = useState('')
@@ -118,13 +121,14 @@ export default function VehicleList() {
     setPage(1)
   }
 
-  async function load(p = page, filter = statusFilter, type = typeFilter, q = search) {
+  async function load(p = page, filter = statusFilter, type = typeFilter, q = search, arch = archived) {
     setLoading(true)
     try {
       const params = { page: p, page_size: PAGE_SIZE }
-      if (filter) params.status       = filter
-      if (type)   params.vehicle_type = type
-      if (q)      params.search       = q
+      if (filter)  params.status       = filter
+      if (type)    params.vehicle_type = type
+      if (q)       params.search       = q
+      if (arch)    params.archived     = true
       const { data } = await api.get('/vehicles', { params })
       setItems(data?.items ?? [])
       setTotal(data?.total ?? 0)
@@ -135,8 +139,8 @@ export default function VehicleList() {
     }
   }
 
-  useEffect(() => { setPage(1); load(1, statusFilter, typeFilter, search) }, [statusFilter, typeFilter])
-  useEffect(() => { load(page, statusFilter, typeFilter, search) }, [page, search])
+  useEffect(() => { setPage(1); load(1, statusFilter, typeFilter, search, archived) }, [statusFilter, typeFilter, archived])
+  useEffect(() => { load(page, statusFilter, typeFilter, search, archived) }, [page, search])
 
   async function handleArchive(inspId) {
     if (confirmArchiveId !== inspId) {
@@ -175,8 +179,19 @@ export default function VehicleList() {
           </button>
         ))}
 
-        {/* View toggle */}
+        {/* View toggle + archive toggle */}
         <div className="ml-auto flex gap-1 flex-shrink-0">
+          {isAdmin() && (
+            <button
+              onClick={() => { setArchived(a => !a); setPage(1) }}
+              title={archived ? 'Ver activos' : 'Ver archivados'}
+              className={`min-h-[36px] min-w-[36px] flex items-center justify-center transition-all ${
+                archived ? 'bg-red-500/20 border border-red-500/40 text-red-400' : 'border border-white/10 text-white/40 hover:text-white'
+              }`}
+            >
+              <Archive size={15} />
+            </button>
+          )}
           <button
             onClick={() => { setView('list'); localStorage.setItem('vehicles_view', 'list') }}
             title="Vista lista"
@@ -196,13 +211,21 @@ export default function VehicleList() {
             <CalendarDays size={15} />
           </button>
           <button
-            onClick={() => load(page, statusFilter, typeFilter)}
+            onClick={() => load(page, statusFilter, typeFilter, search, archived)}
             className="min-h-[36px] min-w-[36px] flex items-center justify-center text-white/40 hover:text-white"
           >
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
+
+      {/* ── Archived banner ── */}
+      {archived && (
+        <div className="px-4 py-2 bg-red-500/10 border-b border-red-500/20 flex items-center gap-2 text-red-400 text-xs font-mono">
+          <Archive size={12} />
+          Viendo inspecciones archivadas — solo lectura
+        </div>
+      )}
 
       {/* ── Row 2: Vehicle type filter ── */}
       <div className="px-4 py-2 flex gap-1.5 border-b border-white/5 overflow-x-auto">
@@ -268,9 +291,10 @@ export default function VehicleList() {
               <InspectionCard
                 key={i.id}
                 insp={i}
-                onClick={() => navigate(nextRoute(i))}
+                onClick={() => navigate(archived ? `/vehicles/${i.id}` : nextRoute(i))}
                 onArchive={handleArchive}
                 confirmingArchive={confirmArchiveId === i.id}
+                showArchiveBtn={!archived}
               />
             ))
           )}
@@ -297,13 +321,15 @@ export default function VehicleList() {
         </div>
       )}
 
-      <button
-        onClick={() => navigate('/vehicles/new')}
-        className="fixed bottom-20 right-4 w-14 h-14 bg-[#F5A623] text-[#0f1117] flex items-center justify-center shadow-lg hover:bg-[#e8961f] active:scale-95 transition-all z-30"
-        aria-label="Nueva inspección"
-      >
-        <Plus size={28} strokeWidth={2.5} />
-      </button>
+      {!archived && (
+        <button
+          onClick={() => navigate('/vehicles/new')}
+          className="fixed bottom-20 right-4 w-14 h-14 bg-[#F5A623] text-[#0f1117] flex items-center justify-center shadow-lg hover:bg-[#e8961f] active:scale-95 transition-all z-30"
+          aria-label="Nueva inspección"
+        >
+          <Plus size={28} strokeWidth={2.5} />
+        </button>
+      )}
     </Layout>
   )
 }

@@ -31,13 +31,14 @@ def list_trailers(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status: Optional[str] = None,
+    archived: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     q = db.query(Trailer).options(
         joinedload(Trailer.creator),
         joinedload(Trailer.sections).joinedload(Section.updater),
-    ).filter(Trailer.is_deleted == False)
+    ).filter(Trailer.is_deleted == archived)
     if status:
         q = q.filter(Trailer.status == status)
     total = q.count()
@@ -92,7 +93,7 @@ def get_trailer(
             joinedload(Trailer.creator),
             joinedload(Trailer.sections).joinedload(Section.updater),
         )
-        .filter(Trailer.id == trailer_id, Trailer.is_deleted == False)
+        .filter(Trailer.id == trailer_id)
         .first()
     )
     if not trailer:

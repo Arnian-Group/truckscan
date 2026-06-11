@@ -82,6 +82,7 @@ class TrailerOut(BaseModel):
     plate: Optional[str]
     reference: Optional[str]
     status: TrailerStatus
+    is_deleted: bool = False
     created_by: UUID
     created_at: datetime
     updated_at: datetime
@@ -96,6 +97,7 @@ class TrailerListItem(BaseModel):
     plate: Optional[str]
     reference: Optional[str]
     status: TrailerStatus
+    is_deleted: bool = False
     created_at: datetime
     updated_at: datetime
     creator: Optional[UserOut] = None
@@ -210,6 +212,7 @@ class VehicleInspectionOut(BaseModel):
     folio: Optional[str]
     vehicle_type: VehicleType
     status: InspectionStatus
+    is_deleted: bool = False
     fecha: Optional[date]
     city: Optional[str]
     nombre: Optional[str]
@@ -251,6 +254,7 @@ class VehicleInspectionListItem(BaseModel):
     folio: Optional[str]
     vehicle_type: VehicleType
     status: InspectionStatus
+    is_deleted: bool = False
     fecha: Optional[date]
     city: Optional[str]
     nombre: Optional[str]

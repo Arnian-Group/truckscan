@@ -196,6 +196,11 @@ export default function VehicleDetail() {
 
   return (
     <Layout title="Detalle" back="/vehicles">
+      {insp.is_deleted && (
+        <div className="px-4 py-2.5 bg-red-500/10 border-b border-red-500/20 flex items-center gap-2 text-red-400 text-xs font-mono font-bold uppercase tracking-wider">
+          <span>■</span> INSPECCIÓN ARCHIVADA — solo lectura
+        </div>
+      )}
       <div className="px-4 py-4 pb-24 max-w-2xl mx-auto space-y-5">
 
         {/* Header */}
@@ -476,7 +481,7 @@ export default function VehicleDetail() {
               <ExternalLink size={14} className="text-white/30" />
             </button>
           )}
-          {insp.status !== 'completed' && (
+          {!insp.is_deleted && insp.status !== 'completed' && (
             <button
               onClick={() => navigate(isMercancias ? `/vehicles/${id}/mercancias` : `/vehicles/${id}/inspection`)}
               className="w-full py-3.5 border border-purple-400/40 text-purple-400 font-mono text-sm hover:bg-purple-400/10 transition-colors"
@@ -484,7 +489,7 @@ export default function VehicleDetail() {
               {isMercancias ? 'Continuar Recibo →' : 'Continuar Inspección →'}
             </button>
           )}
-          {insp.status === 'completed' && admin && (
+          {!insp.is_deleted && insp.status === 'completed' && admin && (
             <button
               onClick={() => setShareModal(true)}
               className="w-full flex items-center gap-3 py-3.5 px-4 border border-white/10 hover:border-[#F5A623]/40 transition-colors"
@@ -494,7 +499,7 @@ export default function VehicleDetail() {
               <ExternalLink size={14} className="text-white/30" />
             </button>
           )}
-          {admin && (
+          {!insp.is_deleted && admin && (
             <button
               onClick={() => setConfirmDelete(true)}
               className="w-full flex items-center justify-center gap-2 py-3.5 border border-red-500/30 text-red-400/70 font-mono text-sm hover:border-red-500/60 hover:text-red-400 transition-colors"

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Truck, X, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Truck, X, RefreshCw, ChevronLeft, ChevronRight, Archive } from 'lucide-react'
 import Layout from '../components/Layout'
 import api from '../lib/api'
+import { isAdmin } from '../lib/auth'
 
 const PAGE_SIZE = 20
 
@@ -30,7 +31,7 @@ function TrailerCard({ trailer, onClick }) {
   return (
     <motion.button
       onClick={onClick}
-      className="w-full bg-[#161b27] border border-white/10 p-4 text-left hover:border-[#F5A623]/40 active:scale-98 transition-all"
+      className={`w-full bg-[#161b27] border p-4 text-left hover:border-[#F5A623]/40 active:scale-98 transition-all ${trailer.is_deleted ? 'border-white/5 opacity-70' : 'border-white/10'}`}
       whileTap={{ scale: 0.98 }}
     >
       <div className="flex items-start justify-between gap-2 mb-3">
@@ -162,14 +163,16 @@ export default function TrailerList() {
   const [loading, setLoading] = useState(true)
   const [showNew, setShowNew] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
+  const [archived, setArchived] = useState(false)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
 
-  async function load(p = page, filter = statusFilter) {
+  async function load(p = page, filter = statusFilter, arch = archived) {
     setLoading(true)
     try {
       const params = { page: p, page_size: PAGE_SIZE }
       if (filter) params.status = filter
+      if (arch)   params.archived = true
       const { data } = await api.get('/trailers', { params })
       setTrailers(data.items)
       setTotal(data.total)
@@ -182,11 +185,11 @@ export default function TrailerList() {
 
   useEffect(() => {
     setPage(1)
-    load(1, statusFilter)
-  }, [statusFilter])
+    load(1, statusFilter, archived)
+  }, [statusFilter, archived])
 
   useEffect(() => {
-    load(page, statusFilter)
+    load(page, statusFilter, archived)
   }, [page])
 
   function handleCreated(trailer) {
@@ -213,14 +216,35 @@ export default function TrailerList() {
             {f === '' ? 'TODOS' : f === 'open' ? 'ABIERTOS' : 'COMPLETADOS'}
           </button>
         ))}
-        <button
-          onClick={() => load(page, statusFilter)}
-          className="ml-auto p-1.5 text-white/40 hover:text-white min-h-[36px] min-w-[36px] flex items-center justify-center"
-          aria-label="Refresh"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
+        <div className="ml-auto flex gap-1">
+          {isAdmin() && (
+            <button
+              onClick={() => { setArchived(a => !a); setPage(1) }}
+              title={archived ? 'Ver activos' : 'Ver archivados'}
+              className={`min-h-[36px] min-w-[36px] flex items-center justify-center transition-all ${
+                archived ? 'bg-red-500/20 border border-red-500/40 text-red-400' : 'border border-white/10 text-white/40 hover:text-white'
+              }`}
+            >
+              <Archive size={15} />
+            </button>
+          )}
+          <button
+            onClick={() => load(page, statusFilter, archived)}
+            className="p-1.5 text-white/40 hover:text-white min-h-[36px] min-w-[36px] flex items-center justify-center"
+            aria-label="Refresh"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
+
+      {/* Archived banner */}
+      {archived && (
+        <div className="px-4 py-2 bg-red-500/10 border-b border-red-500/20 flex items-center gap-2 text-red-400 text-xs font-mono">
+          <Archive size={12} />
+          Viendo trailers archivados — solo lectura
+        </div>
+      )}
 
       {/* List */}
       <div className="px-4 py-4 space-y-3 pb-28">
@@ -267,13 +291,15 @@ export default function TrailerList() {
       </div>
 
       {/* FAB */}
-      <button
-        onClick={() => setShowNew(true)}
-        className="fixed bottom-20 right-4 w-14 h-14 bg-[#F5A623] text-[#0f1117] flex items-center justify-center shadow-lg hover:bg-[#e8961f] active:scale-95 transition-all z-30"
-        aria-label="New trailer"
-      >
-        <Plus size={28} strokeWidth={2.5} />
-      </button>
+      {!archived && (
+        <button
+          onClick={() => setShowNew(true)}
+          className="fixed bottom-20 right-4 w-14 h-14 bg-[#F5A623] text-[#0f1117] flex items-center justify-center shadow-lg hover:bg-[#e8961f] active:scale-95 transition-all z-30"
+          aria-label="New trailer"
+        >
+          <Plus size={28} strokeWidth={2.5} />
+        </button>
+      )}
 
       {showNew && <NewTrailerModal onClose={() => setShowNew(false)} onCreate={handleCreated} />}
     </Layout>

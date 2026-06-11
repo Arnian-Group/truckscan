@@ -106,6 +106,11 @@ export default function TrailerDetail() {
 
   return (
     <Layout title={title} back="/trailers">
+      {trailer.is_deleted && (
+        <div className="px-4 py-2.5 bg-red-500/10 border-b border-red-500/20 flex items-center gap-2 text-red-400 text-xs font-mono font-bold uppercase tracking-wider">
+          <span>■</span> TRAILER ARCHIVADO — solo lectura
+        </div>
+      )}
       <div className="px-4 py-4 space-y-4 pb-32">
         {/* Header info */}
         <div className="flex items-center justify-between">
@@ -175,7 +180,7 @@ export default function TrailerDetail() {
         </div>
 
         {/* Admin delete */}
-        {isAdmin() && (
+        {isAdmin() && !trailer.is_deleted && (
           <div className="pt-2 pb-1">
             <button
               onClick={handleDelete}
@@ -215,7 +220,7 @@ export default function TrailerDetail() {
       </div>
 
       {/* Complete button */}
-      {!isCompleted && (
+      {!isCompleted && !trailer.is_deleted && (
         <div className="fixed bottom-16 left-0 right-0 p-4 bg-[#0f1117]/90 backdrop-blur-sm border-t border-white/10 z-30">
           {pendingCount > 0 && (
             <p className="text-center text-white/40 text-xs font-mono mb-2">
