@@ -14,6 +14,8 @@ import VehicleIntake from './pages/VehicleIntake'
 import VehicleInspection from './pages/VehicleInspection'
 import VehicleDetail from './pages/VehicleDetail'
 import MercanciaIntake from './pages/MercanciaIntake'
+import SharedView from './pages/SharedView'
+import ShareLinks from './pages/ShareLinks'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
 import VehicleRoute from './components/VehicleRoute'
@@ -29,6 +31,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/s/:token" element={<SharedView />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/trailers" element={<TrailerList />} />
@@ -42,8 +45,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route path="/vehicles/:id" element={<VehicleDetail />} />
           </Route>
           <Route element={<AdminRoute />}>
-            <Route path="/audit" element={<AuditLog />} />
-            <Route path="/users" element={<Users />} />
+            <Route path="/audit"  element={<AuditLog />} />
+            <Route path="/users"  element={<Users />} />
+            <Route path="/shares" element={<ShareLinks />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

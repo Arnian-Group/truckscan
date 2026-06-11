@@ -65,6 +65,27 @@ def require_vehicle_agent(current_user: User = Depends(get_current_user)) -> Use
     return current_user
 
 
+def get_current_user_download_or_none(
+    header_token: Optional[str] = Depends(oauth2_scheme_optional),
+    query_token: Optional[str] = Query(default=None, alias="token"),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    raw = query_token or header_token
+    if not raw:
+        return None
+    try:
+        payload = jwt.decode(raw, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            return None
+    except JWTError:
+        return None
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None or not user.is_active:
+        return None
+    return user
+
+
 def get_current_user_download(
     header_token: Optional[str] = Depends(oauth2_scheme_optional),
     query_token: Optional[str] = Query(default=None, alias="token"),

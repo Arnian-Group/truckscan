@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, FileText, Printer, Download, CheckSquare, Square, ExternalLink, Trash2, Shield, ChevronLeft, ChevronRight, X, ZoomIn } from 'lucide-react'
+import { Loader, FileText, Printer, Download, CheckSquare, Square, ExternalLink, Trash2, Shield, ChevronLeft, ChevronRight, X, ZoomIn, Share2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
+import ShareModal from '../components/ShareModal'
 import api from '../lib/api'
 import { isAdmin } from '../lib/auth'
 import { mediaUrl } from '../lib/mediaUrl'
@@ -134,6 +135,7 @@ export default function VehicleDetail() {
   const [checklist, setChecklist] = useState({})
   const [savingChecklist, setSavingChecklist] = useState(false)
   const [lightbox, setLightbox] = useState(null)
+  const [shareModal, setShareModal] = useState(false)
   const admin = isAdmin()
 
   const openPhoto = useCallback((photos, i) => {
@@ -482,6 +484,16 @@ export default function VehicleDetail() {
               {isMercancias ? 'Continuar Recibo →' : 'Continuar Inspección →'}
             </button>
           )}
+          {insp.status === 'completed' && admin && (
+            <button
+              onClick={() => setShareModal(true)}
+              className="w-full flex items-center gap-3 py-3.5 px-4 border border-white/10 hover:border-[#F5A623]/40 transition-colors"
+            >
+              <Share2 size={18} className="text-[#F5A623]" />
+              <span className="flex-1 text-sm text-left">Compartir inspección</span>
+              <ExternalLink size={14} className="text-white/30" />
+            </button>
+          )}
           {admin && (
             <button
               onClick={() => setConfirmDelete(true)}
@@ -509,6 +521,10 @@ export default function VehicleDetail() {
           </section>
         )}
       </div>
+
+      {shareModal && (
+        <ShareModal inspectionId={id} onClose={() => setShareModal(false)} />
+      )}
 
       <AnimatePresence>
         {lightbox && (

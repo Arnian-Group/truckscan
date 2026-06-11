@@ -1,6 +1,6 @@
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { logout, getUser, isAdmin, canTrailers, canVehicles } from '../lib/auth'
-import { Truck, List, ClipboardList, Users, LogOut, Car, LayoutDashboard } from 'lucide-react'
+import { Truck, List, ClipboardList, Users, LogOut, Car, LayoutDashboard, Link2 } from 'lucide-react'
 
 export default function Layout({ children, title, back }) {
   const navigate = useNavigate()
@@ -62,8 +62,9 @@ export default function Layout({ children, title, back }) {
         )}
         {isAdmin() && (
           <>
-            <NavItem to="/audit" icon={<ClipboardList size={20} />} label="Audit" active={location.pathname === '/audit'} />
-            <NavItem to="/users" icon={<Users size={20} />} label="Users" active={location.pathname === '/users'} />
+            <NavItem to="/audit"   icon={<ClipboardList size={20} />} label="Audit"  active={location.pathname === '/audit'} />
+            <NavItem to="/users"   icon={<Users size={20} />}         label="Users"  active={location.pathname === '/users'} />
+            <NavItem to="/shares"  icon={<Link2 size={20} />}         label="Links"  active={location.pathname === '/shares'} />
           </>
         )}
       </nav>

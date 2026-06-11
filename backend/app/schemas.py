@@ -264,3 +264,26 @@ class VehicleInspectionListItem(BaseModel):
     updated_at: Optional[datetime]
 
     model_config = {"from_attributes": True}
+
+
+# Share links
+class SharedLinkCreate(BaseModel):
+    inspection_id: UUID
+    label: Optional[str] = None
+    expires_hours: Optional[int] = None  # None = never expires
+
+
+class SharedLinkOut(BaseModel):
+    id: UUID
+    token: str
+    inspection_id: UUID
+    label: Optional[str] = None
+    expires_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+    access_count: int = 0
+    last_accessed_at: Optional[datetime] = None
+    created_at: datetime
+    created_by: UUID
+    folio: Optional[str] = None  # populated from inspection
+
+    model_config = {"from_attributes": True}

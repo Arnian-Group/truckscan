@@ -7,10 +7,10 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from .database import engine, SessionLocal, Base
-from .models import User, Trailer, Section, UserRole, TrailerStatus, SectionStatus
+from .models import User, Trailer, Section, UserRole, TrailerStatus, SectionStatus, SharedLink
 from .auth import hash_password
 from .config import settings
-from .routers import auth, trailers, sections, users, audit, vehicles, uploads
+from .routers import auth, trailers, sections, users, audit, vehicles, uploads, shared
 from .routers.vehicles import _prefetch_logo
 
 
@@ -145,6 +145,7 @@ app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(audit.router, prefix="/audit", tags=["audit"])
 app.include_router(vehicles.router, prefix="/vehicles", tags=["vehicles"])
 app.include_router(uploads.router, prefix="/uploads", tags=["uploads"])
+app.include_router(shared.router, prefix="/shared", tags=["shared"])
 
 
 @app.get("/health")

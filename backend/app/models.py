@@ -171,6 +171,24 @@ class VehicleInspection(Base):
     )
 
 
+class SharedLink(Base):
+    __tablename__ = "shared_links"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    inspection_id = Column(UUID(as_uuid=True), ForeignKey("vehicle_inspections.id"), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    label = Column(String(255), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    access_count = Column(Integer, default=0, server_default='0', nullable=False)
+    last_accessed_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    inspection = relationship("VehicleInspection")
+    creator = relationship("User", foreign_keys=[created_by])
+
+
 class VehicleDamage(Base):
     __tablename__ = "vehicle_damages"
 
