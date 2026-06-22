@@ -12,15 +12,17 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 
 from ..database import get_db
-from ..models import User, VehicleInspection, VehicleDamage, InspectionStatus, VehicleType
+from ..models import User, VehicleInspection, VehicleDamage, InspectionEditor, InspectionStatus, VehicleType
 from ..auth import get_current_user, require_vehicle_agent, require_admin, get_current_user_download
 from ..schemas import (
     VehicleIntakeCreate, VehicleIntakeUpdate, SignBody,
     VehicleDamageUpdate, VehicleDamageOut,
     VehicleInspectionOut, VehicleInspectionListItem,
     PaginatedResponse, ChecklistUpdate, CompleteBody,
+    EditorCreate, EditorOut, UserOut,
 )
 from ..audit import log_action
+from ..permissions import assert_can_edit_inspection, assert_can_manage_inspection_editors
 from ..config import settings
 
 router = APIRouter()
@@ -730,7 +732,9 @@ def list_inspections(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vehicle_agent),
 ):
-    q = db.query(VehicleInspection).filter(VehicleInspection.is_deleted == archived)
+    q = db.query(VehicleInspection).options(
+        joinedload(VehicleInspection.editor_links)
+    ).filter(VehicleInspection.is_deleted == archived)
     if status:
         q = q.filter(VehicleInspection.status == status)
     if vehicle_type:
@@ -817,6 +821,19 @@ def create_inspection(
     return _get_inspection(db, insp.id)
 
 
+@router.get("/editor-candidates", response_model=List[UserOut])
+def list_editor_candidates(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vehicle_agent),
+):
+    return (
+        db.query(User)
+        .filter(User.is_active == True, or_(User.can_vehicles == True, User.is_admin == True))
+        .order_by(User.name)
+        .all()
+    )
+
+
 @router.get("/{inspection_id}", response_model=VehicleInspectionOut)
 def get_inspection(
     inspection_id: uuid.UUID,
@@ -828,6 +845,77 @@ def get_inspection(
     return insp
 
 
+@router.get("/{inspection_id}/editors", response_model=List[EditorOut])
+def list_inspection_editors(
+    inspection_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vehicle_agent),
+):
+    _get_inspection_any(db, inspection_id)
+    return (
+        db.query(InspectionEditor)
+        .options(joinedload(InspectionEditor.user))
+        .filter(InspectionEditor.inspection_id == inspection_id)
+        .order_by(InspectionEditor.created_at)
+        .all()
+    )
+
+
+@router.post("/{inspection_id}/editors", response_model=EditorOut, status_code=201)
+def add_inspection_editor(
+    inspection_id: uuid.UUID,
+    body: EditorCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vehicle_agent),
+):
+    insp = _get_inspection(db, inspection_id)
+    assert_can_manage_inspection_editors(current_user, insp)
+    target = db.query(User).filter(User.id == body.user_id, User.is_active == True).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if not (target.is_admin or target.can_vehicles):
+        raise HTTPException(status_code=400, detail="El usuario no tiene permiso del módulo de vehículos")
+    existing = db.query(InspectionEditor).filter(
+        InspectionEditor.inspection_id == inspection_id,
+        InspectionEditor.user_id == body.user_id,
+    ).first()
+    if existing:
+        return existing
+    editor = InspectionEditor(
+        id=uuid.uuid4(),
+        inspection_id=inspection_id,
+        user_id=body.user_id,
+        created_by=current_user.id,
+    )
+    db.add(editor)
+    db.commit()
+    db.refresh(editor)
+    log_action(db, current_user.id, "inspection_editor_added", "vehicle_inspection", str(inspection_id),
+               {"user_id": str(body.user_id)})
+    return editor
+
+
+@router.delete("/{inspection_id}/editors/{user_id}", status_code=204)
+def remove_inspection_editor(
+    inspection_id: uuid.UUID,
+    user_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vehicle_agent),
+):
+    insp = _get_inspection(db, inspection_id)
+    assert_can_manage_inspection_editors(current_user, insp)
+    editor = db.query(InspectionEditor).filter(
+        InspectionEditor.inspection_id == inspection_id,
+        InspectionEditor.user_id == user_id,
+    ).first()
+    if not editor:
+        raise HTTPException(status_code=404, detail="Editor no encontrado")
+    db.delete(editor)
+    db.commit()
+    log_action(db, current_user.id, "inspection_editor_removed", "vehicle_inspection", str(inspection_id),
+               {"user_id": str(user_id)})
+
+
 @router.patch("/{inspection_id}/intake", response_model=VehicleInspectionOut)
 def update_intake(
     inspection_id: uuid.UUID,
@@ -836,6 +924,7 @@ def update_intake(
     current_user: User = Depends(require_vehicle_agent),
 ):
     insp = _get_inspection(db, inspection_id)
+    assert_can_edit_inspection(db, current_user, insp)
     if insp.status == InspectionStatus.completed:
         raise HTTPException(status_code=400, detail="La inspección ya está completada")
     for field, value in body.model_dump(exclude_unset=True).items():
@@ -854,6 +943,7 @@ def sign_inspection(
     current_user: User = Depends(require_vehicle_agent),
 ):
     insp = _get_inspection(db, inspection_id)
+    assert_can_edit_inspection(db, current_user, insp)
     if insp.status == InspectionStatus.completed:
         raise HTTPException(status_code=400, detail="La inspección ya está completada")
 
@@ -889,6 +979,7 @@ def start_inspection(
     current_user: User = Depends(require_vehicle_agent),
 ):
     insp = _get_inspection(db, inspection_id)
+    assert_can_edit_inspection(db, current_user, insp)
     if insp.status not in (InspectionStatus.intake_complete, InspectionStatus.in_inspection):
         raise HTTPException(status_code=400, detail="Debe completar el intake primero")
     if insp.status == InspectionStatus.intake_complete:
@@ -912,6 +1003,7 @@ async def add_damage(
     current_user: User = Depends(require_vehicle_agent),
 ):
     insp = _get_inspection(db, inspection_id)
+    assert_can_edit_inspection(db, current_user, insp)
     if insp.status == InspectionStatus.completed:
         raise HTTPException(status_code=400, detail="La inspección ya está completada")
     if insp.status == InspectionStatus.intake:
@@ -956,6 +1048,8 @@ def update_damage(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vehicle_agent),
 ):
+    insp = _get_inspection(db, inspection_id)
+    assert_can_edit_inspection(db, current_user, insp)
     damage = db.query(VehicleDamage).filter(
         VehicleDamage.id == damage_id,
         VehicleDamage.inspection_id == inspection_id,
@@ -976,6 +1070,8 @@ def delete_damage(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vehicle_agent),
 ):
+    insp = _get_inspection(db, inspection_id)
+    assert_can_edit_inspection(db, current_user, insp)
     damage = db.query(VehicleDamage).filter(
         VehicleDamage.id == damage_id,
         VehicleDamage.inspection_id == inspection_id,
@@ -995,6 +1091,7 @@ def update_checklist(
     current_user: User = Depends(require_vehicle_agent),
 ):
     insp = _get_inspection(db, inspection_id)
+    assert_can_edit_inspection(db, current_user, insp)
     if insp.status.value == "completed":
         raise HTTPException(status_code=400, detail="No se puede modificar una inspección completada")
     if body.checklist is not None:
@@ -1014,6 +1111,7 @@ def complete_inspection(
     current_user: User = Depends(require_vehicle_agent),
 ):
     insp = _get_inspection(db, inspection_id)
+    assert_can_edit_inspection(db, current_user, insp)
     if insp.status == InspectionStatus.completed:
         return insp
     if body and body.notas_finales:
@@ -1099,6 +1197,7 @@ async def save_mercancias(
     current_user: User = Depends(require_vehicle_agent),
 ):
     insp = _get_inspection(db, inspection_id)
+    assert_can_edit_inspection(db, current_user, insp)
     if insp.status == InspectionStatus.completed:
         raise HTTPException(status_code=400, detail="Ya está completado")
 

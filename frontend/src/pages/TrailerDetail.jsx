@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle, Loader, Trash2 } from 'lucide-react'
+import { CheckCircle, Loader, Trash2, Users, Lock } from 'lucide-react'
 import Layout from '../components/Layout'
 import TrailerDiagram from '../components/TrailerDiagram'
 import SectionSheet from '../components/SectionSheet'
+import EditorsModal from '../components/EditorsModal'
 import api from '../lib/api'
-import { isAdmin } from '../lib/auth'
+import { isAdmin, canEditDoc, canManageEditors } from '../lib/auth'
 
 export default function TrailerDetail() {
   const { id } = useParams()
@@ -18,6 +19,7 @@ export default function TrailerDetail() {
   const [justCompleted, setJustCompleted] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [editorsModal, setEditorsModal] = useState(false)
 
   async function load() {
     try {
@@ -77,6 +79,9 @@ export default function TrailerDetail() {
   const totalCount = trailer?.sections?.length || 8
   const pendingCount = totalCount - doneCount
   const isCompleted = trailer?.status === 'completed'
+  const canEdit = canEditDoc(trailer)
+  const canManage = canManageEditors(trailer)
+  const sectionsReadOnly = isCompleted || !canEdit
 
   const selectedSection = selected !== null
     ? trailer?.sections?.find((s) => s.number === selected)
@@ -109,6 +114,12 @@ export default function TrailerDetail() {
       {trailer.is_deleted && (
         <div className="px-4 py-2.5 bg-red-500/10 border-b border-red-500/20 flex items-center gap-2 text-red-400 text-xs font-mono font-bold uppercase tracking-wider">
           <span>■</span> TRAILER ARCHIVADO — solo lectura
+        </div>
+      )}
+      {!trailer.is_deleted && !canEdit && (
+        <div className="px-4 py-2.5 bg-[#F5A623]/10 border-b border-[#F5A623]/20 flex items-center gap-2 text-[#F5A623] text-xs font-mono font-bold uppercase tracking-wider">
+          <Lock size={12} />
+          Solo lectura — no eres el creador ni un editor invitado
         </div>
       )}
       <div className="px-4 py-4 space-y-4 pb-32">
@@ -174,10 +185,23 @@ export default function TrailerDetail() {
               key={section.number}
               section={section}
               onClick={() => setSelected(section.number)}
-              readonly={isCompleted}
+              readonly={sectionsReadOnly}
             />
           ))}
         </div>
+
+        {/* Editors management */}
+        {!trailer.is_deleted && canManage && (
+          <button
+            onClick={() => setEditorsModal(true)}
+            className="w-full flex items-center gap-3 py-3 px-4 border border-white/10 hover:border-[#F5A623]/40 transition-colors"
+          >
+            <Users size={16} className="text-[#F5A623]" />
+            <span className="flex-1 text-sm text-left">
+              Editores invitados{trailer.editor_ids?.length > 0 ? ` (${trailer.editor_ids.length})` : ''}
+            </span>
+          </button>
+        )}
 
         {/* Admin delete */}
         {isAdmin() && !trailer.is_deleted && (
@@ -220,7 +244,7 @@ export default function TrailerDetail() {
       </div>
 
       {/* Complete button */}
-      {!isCompleted && !trailer.is_deleted && (
+      {!isCompleted && !trailer.is_deleted && canEdit && (
         <div className="fixed bottom-16 left-0 right-0 p-4 bg-[#0f1117]/90 backdrop-blur-sm border-t border-white/10 z-30">
           {pendingCount > 0 && (
             <p className="text-center text-white/40 text-xs font-mono mb-2">
@@ -248,7 +272,7 @@ export default function TrailerDetail() {
 
       {/* Section sheet */}
       <AnimatePresence>
-        {selected !== null && selectedSection && !isCompleted && (
+        {selected !== null && selectedSection && !sectionsReadOnly && (
           <SectionSheet
             key={selected}
             trailerId={id}
@@ -260,7 +284,7 @@ export default function TrailerDetail() {
             }}
           />
         )}
-        {selected !== null && isCompleted && selectedSection && (
+        {selected !== null && sectionsReadOnly && selectedSection && (
           <SectionSheet
             key={`view-${selected}`}
             trailerId={id}
@@ -271,6 +295,15 @@ export default function TrailerDetail() {
           />
         )}
       </AnimatePresence>
+
+      {editorsModal && (
+        <EditorsModal
+          module="trailers"
+          docId={id}
+          onClose={() => setEditorsModal(false)}
+          onChange={() => api.get(`/trailers/${id}`).then(({ data }) => setTrailer(data)).catch(console.error)}
+        />
+      )}
     </Layout>
   )
 }

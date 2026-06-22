@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import DamageSheet from '../components/DamageSheet'
 import api from '../lib/api'
+import { canEditDoc } from '../lib/auth'
 import { mediaUrl } from '../lib/mediaUrl'
 
 const VIEWS = [
@@ -32,6 +33,10 @@ export default function VehicleInspection() {
   async function load() {
     try {
       const { data } = await api.get(`/vehicles/${id}`)
+      if (!canEditDoc(data)) {
+        navigate(`/vehicles/${id}`, { replace: true })
+        return
+      }
       setInsp(data)
       if (data.status === 'completed') navigate(`/vehicles/${id}`, { replace: true })
       if (data.status === 'intake') navigate(`/vehicles/${id}/intake`, { replace: true })

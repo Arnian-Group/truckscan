@@ -87,6 +87,7 @@ class TrailerOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     creator: Optional[UserOut] = None
+    editor_ids: List[UUID] = []
     sections: List[SectionOut] = []
 
     model_config = {"from_attributes": True}
@@ -98,9 +99,11 @@ class TrailerListItem(BaseModel):
     reference: Optional[str]
     status: TrailerStatus
     is_deleted: bool = False
+    created_by: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
     creator: Optional[UserOut] = None
+    editor_ids: List[UUID] = []
     sections: List[SectionOut] = []
 
     model_config = {"from_attributes": True}
@@ -242,6 +245,8 @@ class VehicleInspectionOut(BaseModel):
     liability_pdf_path: Optional[str]
     full_report_pdf_path: Optional[str]
     created_by: Optional[UUID]
+    creator: Optional[UserOut] = None
+    editor_ids: List[UUID] = []
     created_at: datetime
     updated_at: Optional[datetime]
     damages: List[VehicleDamageOut] = []
@@ -265,8 +270,24 @@ class VehicleInspectionListItem(BaseModel):
     model: Optional[str]
     color: Optional[str]
     vin: Optional[str] = None
+    created_by: Optional[UUID] = None
+    editor_ids: List[UUID] = []
     created_at: datetime
     updated_at: Optional[datetime]
+
+    model_config = {"from_attributes": True}
+
+
+# Editors (creator-managed edit/close access)
+class EditorCreate(BaseModel):
+    user_id: UUID
+
+
+class EditorOut(BaseModel):
+    id: UUID
+    user_id: UUID
+    user: Optional[UserOut] = None
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 

@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import SignatureCanvas from '../components/SignatureCanvas'
 import api from '../lib/api'
-import { isAdmin } from '../lib/auth'
+import { isAdmin, canEditDoc } from '../lib/auth'
 import { CITIES } from '../lib/cities'
 
 const FUEL_OPTIONS = ['E', '1/4', '1/2', '3/4', 'F']
@@ -273,6 +273,10 @@ export default function VehicleIntake() {
 
   useEffect(() => {
     api.get(`/vehicles/${id}`).then(({ data }) => {
+      if (!canEditDoc(data)) {
+        navigate(`/vehicles/${id}`, { replace: true })
+        return
+      }
       setInsp(data)
       setForm(prev => ({
         ...prev,

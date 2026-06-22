@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Calendar, Car } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 import { cityBadgeClass } from '../lib/cities'
+import { canEditDoc } from '../lib/auth'
 
 const STATUS_CONFIG = {
   completed:      { label: 'COMPLETADO', textColor: 'text-[#22C55E]',  dotColor: 'bg-[#22C55E]',  badge: 'text-[#22C55E] bg-[#22C55E22] border-[#22C55E40]' },
@@ -65,6 +66,10 @@ function nextRoute(insp) {
   if (insp.status === 'intake') return `/vehicles/${insp.id}/intake`
   if (insp.status === 'intake_complete' || insp.status === 'in_inspection') return `/vehicles/${insp.id}/inspection`
   return `/vehicles/${insp.id}`
+}
+
+function safeRoute(insp) {
+  return canEditDoc(insp) ? nextRoute(insp) : `/vehicles/${insp.id}`
 }
 
 // ── Summary Panel ────────────────────────────────────────────────────────────
@@ -257,7 +262,7 @@ function WeekView({ currentDate, byDate, onNavigate }) {
             ) : (
               <div className="p-1 space-y-px">
                 {dayInsps.map(insp => (
-                  <MiniCard key={insp.id} insp={insp} onClick={() => onNavigate(nextRoute(insp))} />
+                  <MiniCard key={insp.id} insp={insp} onClick={() => onNavigate(safeRoute(insp))} />
                 ))}
               </div>
             )}
@@ -281,7 +286,7 @@ function DayView({ currentDate, byDate, onNavigate }) {
   ) : (
     <div className="space-y-2">
       {dayInsps.map(insp => (
-        <MiniCard key={insp.id} insp={insp} onClick={() => onNavigate(nextRoute(insp))} />
+        <MiniCard key={insp.id} insp={insp} onClick={() => onNavigate(safeRoute(insp))} />
       ))}
     </div>
   )
@@ -439,7 +444,7 @@ export default function VehicleCalendar({ statusFilter, vehicleTypeFilter, searc
               ) : (
                 <div className="space-y-1.5">
                   {(byDate[selectedDay] || []).map(insp => (
-                    <MiniCard key={insp.id} insp={insp} onClick={() => navigate(nextRoute(insp))} />
+                    <MiniCard key={insp.id} insp={insp} onClick={() => navigate(safeRoute(insp))} />
                   ))}
                 </div>
               )}

@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import SignatureCanvas from '../components/SignatureCanvas'
 import api from '../lib/api'
+import { canEditDoc } from '../lib/auth'
 import { compressImage } from '../lib/compressImage'
 import { mediaUrl } from '../lib/mediaUrl'
 
@@ -205,6 +206,10 @@ export default function MercanciaIntake() {
   useEffect(() => {
     api.get(`/vehicles/${id}`)
       .then(({ data }) => {
+        if (!canEditDoc(data)) {
+          navigate(`/vehicles/${id}`, { replace: true })
+          return
+        }
         setInsp(data)
         setForm(f => ({
           ...f,

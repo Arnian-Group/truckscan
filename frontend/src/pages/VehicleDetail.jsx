@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, FileText, Printer, Download, CheckSquare, Square, ExternalLink, Trash2, Shield, ChevronLeft, ChevronRight, X, ZoomIn, Share2 } from 'lucide-react'
+import { Loader, FileText, Printer, Download, CheckSquare, Square, ExternalLink, Trash2, Shield, ChevronLeft, ChevronRight, X, ZoomIn, Share2, Users, Lock } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import ShareModal from '../components/ShareModal'
+import EditorsModal from '../components/EditorsModal'
 import api from '../lib/api'
-import { isAdmin } from '../lib/auth'
+import { isAdmin, canEditDoc, canManageEditors } from '../lib/auth'
 import { mediaUrl } from '../lib/mediaUrl'
 
 const CHECKLIST_ITEMS = [
@@ -136,6 +137,7 @@ export default function VehicleDetail() {
   const [savingChecklist, setSavingChecklist] = useState(false)
   const [lightbox, setLightbox] = useState(null)
   const [shareModal, setShareModal] = useState(false)
+  const [editorsModal, setEditorsModal] = useState(false)
   const admin = isAdmin()
 
   const openPhoto = useCallback((photos, i) => {
@@ -160,6 +162,8 @@ export default function VehicleDetail() {
 
   const st = STATUS_LABELS[insp.status] || STATUS_LABELS.intake
   const damages = insp.damages || []
+  const canEdit = canEditDoc(insp)
+  const canManage = canManageEditors(insp)
 
   // Damage summary by type
   async function handleSaveChecklist() {
@@ -201,6 +205,12 @@ export default function VehicleDetail() {
           <span>■</span> INSPECCIÓN ARCHIVADA — solo lectura
         </div>
       )}
+      {!insp.is_deleted && !canEdit && (
+        <div className="px-4 py-2.5 bg-[#F5A623]/10 border-b border-[#F5A623]/20 flex items-center gap-2 text-[#F5A623] text-xs font-mono font-bold uppercase tracking-wider">
+          <Lock size={12} />
+          Solo lectura — no eres el creador ni un editor invitado
+        </div>
+      )}
       <div className="px-4 py-4 pb-24 max-w-2xl mx-auto space-y-5">
 
         {/* Header */}
@@ -211,6 +221,9 @@ export default function VehicleDetail() {
                 {[insp.year, insp.make, insp.model].filter(Boolean).join(' ') || 'Vehículo'}
               </h1>
               <p className="text-white/50 text-sm">{insp.color} · {insp.vehicle_type?.toUpperCase()}</p>
+              {insp.creator?.name && (
+                <p className="text-white/25 text-xs font-mono mt-0.5">Creado por {insp.creator.name}</p>
+              )}
             </div>
             <span className={`font-mono text-xs font-bold px-2 py-1 border whitespace-nowrap ${st.color}`}>
               {st.label}
@@ -365,8 +378,8 @@ export default function VehicleDetail() {
           <div className="space-y-1.5 mb-3">
             {CHECKLIST_ITEMS.map(({ key, label }) => {
               const checked = checklist[key]
-              const editable = insp.status !== 'completed'
-              return editable ? (
+              const itemEditable = canEdit && insp.status !== 'completed'
+              return itemEditable ? (
                 <button
                   key={key}
                   type="button"
@@ -391,7 +404,7 @@ export default function VehicleDetail() {
               )
             })}
           </div>
-          {insp.status !== 'completed' && (
+          {canEdit && insp.status !== 'completed' && (
             <button
               onClick={handleSaveChecklist}
               disabled={savingChecklist}
@@ -481,12 +494,24 @@ export default function VehicleDetail() {
               <ExternalLink size={14} className="text-white/30" />
             </button>
           )}
-          {!insp.is_deleted && insp.status !== 'completed' && (
+          {!insp.is_deleted && insp.status !== 'completed' && canEdit && (
             <button
               onClick={() => navigate(isMercancias ? `/vehicles/${id}/mercancias` : `/vehicles/${id}/inspection`)}
               className="w-full py-3.5 border border-purple-400/40 text-purple-400 font-mono text-sm hover:bg-purple-400/10 transition-colors"
             >
               {isMercancias ? 'Continuar Recibo →' : 'Continuar Inspección →'}
+            </button>
+          )}
+          {!insp.is_deleted && canManage && (
+            <button
+              onClick={() => setEditorsModal(true)}
+              className="w-full flex items-center gap-3 py-3.5 px-4 border border-white/10 hover:border-[#F5A623]/40 transition-colors"
+            >
+              <Users size={18} className="text-[#F5A623]" />
+              <span className="flex-1 text-sm text-left">
+                Editores invitados{insp.editor_ids?.length > 0 ? ` (${insp.editor_ids.length})` : ''}
+              </span>
+              <ExternalLink size={14} className="text-white/30" />
             </button>
           )}
           {!insp.is_deleted && insp.status === 'completed' && admin && (
@@ -529,6 +554,15 @@ export default function VehicleDetail() {
 
       {shareModal && (
         <ShareModal inspectionId={id} onClose={() => setShareModal(false)} />
+      )}
+
+      {editorsModal && (
+        <EditorsModal
+          module="vehicles"
+          docId={id}
+          onClose={() => setEditorsModal(false)}
+          onChange={() => api.get(`/vehicles/${id}`).then(({ data }) => setInsp(data)).catch(console.error)}
+        />
       )}
 
       <AnimatePresence>

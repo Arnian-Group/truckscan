@@ -6,9 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session, joinedload
 from ..database import get_db
 from ..models import Trailer, Section, SectionStatus, User
-from ..auth import get_current_user
+from ..auth import require_trailer_agent
 from ..schemas import SectionOut, SectionDoneBody
 from ..audit import log_action
+from ..permissions import assert_can_edit_trailer
 from ..config import settings
 
 router = APIRouter()
@@ -16,10 +17,15 @@ router = APIRouter()
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 
 
-def _get_section(db: Session, trailer_id: uuid.UUID, section_number: int) -> Section:
+def _get_trailer_or_404(db: Session, trailer_id: uuid.UUID) -> Trailer:
     trailer = db.query(Trailer).filter(Trailer.id == trailer_id).first()
     if not trailer:
         raise HTTPException(status_code=404, detail="Trailer not found")
+    return trailer
+
+
+def _get_section(db: Session, trailer_id: uuid.UUID, section_number: int) -> Section:
+    _get_trailer_or_404(db, trailer_id)
     section = (
         db.query(Section)
         .options(joinedload(Section.updater))
@@ -39,7 +45,7 @@ def get_section(
     trailer_id: uuid.UUID,
     section_number: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_trailer_agent),
 ):
     section = _get_section(db, trailer_id, section_number)
     log_action(
@@ -63,11 +69,13 @@ async def upload_photos(
     section_number: int,
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_trailer_agent),
 ):
     if not files:
         raise HTTPException(status_code=400, detail="At least one file required")
 
+    trailer = _get_trailer_or_404(db, trailer_id)
+    assert_can_edit_trailer(db, current_user, trailer)
     section = _get_section(db, trailer_id, section_number)
 
     saved_paths: List[str] = []
@@ -112,8 +120,10 @@ def mark_section_done(
     section_number: int,
     body: SectionDoneBody = None,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_trailer_agent),
 ):
+    trailer = _get_trailer_or_404(db, trailer_id)
+    assert_can_edit_trailer(db, current_user, trailer)
     section = _get_section(db, trailer_id, section_number)
 
     if not section.photos:

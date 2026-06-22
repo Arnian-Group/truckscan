@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, date, timezone
 from sqlalchemy import (
     Column, String, DateTime, Date, ForeignKey, Text, JSON,
-    Enum as SAEnum, Integer, Float, Boolean
+    Enum as SAEnum, Integer, Float, Boolean, UniqueConstraint
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
@@ -84,6 +84,11 @@ class Trailer(Base):
 
     creator = relationship("User", back_populates="trailers")
     sections = relationship("Section", back_populates="trailer", order_by="Section.number")
+    editor_links = relationship("TrailerEditor", back_populates="trailer", cascade="all, delete-orphan")
+
+    @property
+    def editor_ids(self):
+        return [el.user_id for el in self.editor_links]
 
 
 class Section(Base):
@@ -169,6 +174,11 @@ class VehicleInspection(Base):
         "VehicleDamage", back_populates="inspection",
         order_by="VehicleDamage.created_at", cascade="all, delete-orphan"
     )
+    editor_links = relationship("InspectionEditor", back_populates="inspection", cascade="all, delete-orphan")
+
+    @property
+    def editor_ids(self):
+        return [el.user_id for el in self.editor_links]
 
 
 class SharedLink(Base):
@@ -205,3 +215,33 @@ class VehicleDamage(Base):
 
     inspection = relationship("VehicleInspection", back_populates="damages")
     creator = relationship("User", foreign_keys=[created_by])
+
+
+class InspectionEditor(Base):
+    __tablename__ = "inspection_editors"
+    __table_args__ = (UniqueConstraint("inspection_id", "user_id", name="uq_inspection_editor"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    inspection_id = Column(UUID(as_uuid=True), ForeignKey("vehicle_inspections.id"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    inspection = relationship("VehicleInspection", back_populates="editor_links")
+    user = relationship("User", foreign_keys=[user_id])
+    adder = relationship("User", foreign_keys=[created_by])
+
+
+class TrailerEditor(Base):
+    __tablename__ = "trailer_editors"
+    __table_args__ = (UniqueConstraint("trailer_id", "user_id", name="uq_trailer_editor"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    trailer_id = Column(UUID(as_uuid=True), ForeignKey("trailers.id"), nullable=False, index=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    trailer = relationship("Trailer", back_populates="editor_links")
+    user = relationship("User", foreign_keys=[user_id])
+    adder = relationship("User", foreign_keys=[created_by])

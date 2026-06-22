@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import VehicleCalendar from '../components/VehicleCalendar'
 import api from '../lib/api'
-import { isAdmin } from '../lib/auth'
+import { isAdmin, canEditDoc } from '../lib/auth'
 import { CITIES, cityBadgeClass } from '../lib/cities'
 
 const STATUS_LABELS = {
@@ -33,6 +33,10 @@ function nextRoute(insp) {
   if (insp.status === 'intake') return `/vehicles/${insp.id}/intake`
   if (insp.status === 'intake_complete' || insp.status === 'in_inspection') return `/vehicles/${insp.id}/inspection`
   return `/vehicles/${insp.id}`
+}
+
+function safeRoute(insp) {
+  return canEditDoc(insp) ? nextRoute(insp) : `/vehicles/${insp.id}`
 }
 
 function InspectionCard({ insp, onClick, onArchive, confirmingArchive, showArchiveBtn = true }) {
@@ -330,7 +334,7 @@ export default function VehicleList() {
               <InspectionCard
                 key={i.id}
                 insp={i}
-                onClick={() => navigate(archived ? `/vehicles/${i.id}` : nextRoute(i))}
+                onClick={() => navigate(archived ? `/vehicles/${i.id}` : safeRoute(i))}
                 onArchive={handleArchive}
                 confirmingArchive={confirmArchiveId === i.id}
                 showArchiveBtn={!archived}

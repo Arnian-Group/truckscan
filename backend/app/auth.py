@@ -65,6 +65,12 @@ def require_vehicle_agent(current_user: User = Depends(get_current_user)) -> Use
     return current_user
 
 
+def require_trailer_agent(current_user: User = Depends(get_current_user)) -> User:
+    if not (current_user.is_admin or current_user.can_trailers):
+        raise HTTPException(status_code=403, detail="Trailer module access required")
+    return current_user
+
+
 def get_current_user_download_or_none(
     header_token: Optional[str] = Depends(oauth2_scheme_optional),
     query_token: Optional[str] = Query(default=None, alias="token"),
