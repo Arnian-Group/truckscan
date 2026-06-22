@@ -6,8 +6,8 @@ import Layout from '../components/Layout'
 import SignatureCanvas from '../components/SignatureCanvas'
 import api from '../lib/api'
 import { isAdmin } from '../lib/auth'
+import { CITIES } from '../lib/cities'
 
-const CITIES = ['Tijuana', 'CSL', 'San Diego']
 const FUEL_OPTIONS = ['E', '1/4', '1/2', '3/4', 'F']
 const CHECKLIST_ITEMS = [
   { key: 'licencia',     label: 'Copia de Licencia / Driver\'s License' },

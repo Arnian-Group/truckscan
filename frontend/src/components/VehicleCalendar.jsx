@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { ChevronLeft, ChevronRight, Calendar, Car } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
+import { cityBadgeClass } from '../lib/cities'
 
 const STATUS_CONFIG = {
   completed:      { label: 'COMPLETADO', textColor: 'text-[#22C55E]',  dotColor: 'bg-[#22C55E]',  badge: 'text-[#22C55E] bg-[#22C55E22] border-[#22C55E40]' },
@@ -115,6 +116,11 @@ function MiniCard({ insp, onClick }) {
             </span>
             {insp.folio && (
               <span className="text-[10px] font-mono text-[#F5A623]/50 shrink-0">{insp.folio}</span>
+            )}
+            {insp.city && (
+              <span className={`text-[9px] font-mono font-bold px-1 py-0.5 border uppercase shrink-0 ${cityBadgeClass(insp.city)}`}>
+                {insp.city}
+              </span>
             )}
           </div>
           {insp.vehicle_type !== 'mercancias' && (insp.make || insp.model) && (
@@ -283,7 +289,7 @@ function DayView({ currentDate, byDate, onNavigate }) {
 
 // ── Main Export ───────────────────────────────────────────────────────────────
 
-export default function VehicleCalendar({ statusFilter, vehicleTypeFilter, search }) {
+export default function VehicleCalendar({ statusFilter, vehicleTypeFilter, search, cityFilter }) {
   const navigate   = useNavigate()
   const [viewMode,   setViewMode]   = useState('month')
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -307,6 +313,7 @@ export default function VehicleCalendar({ statusFilter, vehicleTypeFilter, searc
         if (statusFilter)      params.status       = statusFilter
         if (vehicleTypeFilter) params.vehicle_type = vehicleTypeFilter
         if (search)            params.search       = search
+        if (cityFilter)        params.city         = cityFilter
         const { data } = await api.get('/vehicles', { params })
         if (!cancelled) setInspections(data.items ?? [])
       } catch (e) {
@@ -317,7 +324,7 @@ export default function VehicleCalendar({ statusFilter, vehicleTypeFilter, searc
     }
     fetch()
     return () => { cancelled = true }
-  }, [viewMode, currentDate, statusFilter, vehicleTypeFilter, search, getPeriodRange])
+  }, [viewMode, currentDate, statusFilter, vehicleTypeFilter, search, cityFilter, getPeriodRange])
 
   const byDate = groupByLocalDate(inspections)
 

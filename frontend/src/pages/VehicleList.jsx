@@ -6,6 +6,7 @@ import Layout from '../components/Layout'
 import VehicleCalendar from '../components/VehicleCalendar'
 import api from '../lib/api'
 import { isAdmin } from '../lib/auth'
+import { CITIES, cityBadgeClass } from '../lib/cities'
 
 const STATUS_LABELS = {
   intake:          { label: 'INTAKE',     color: 'text-[#F5A623] bg-[#F5A62322] border-[#F5A62340]' },
@@ -54,6 +55,11 @@ function InspectionCard({ insp, onClick, onArchive, confirmingArchive, showArchi
                 {insp.vehicle_type?.toUpperCase()}
               </span>
               {insp.year && <span className="text-white/50 text-xs">{insp.year}</span>}
+              {insp.city && (
+                <span className={`font-mono text-[10px] font-bold px-1.5 py-0.5 border uppercase shrink-0 ${cityBadgeClass(insp.city)}`}>
+                  {insp.city}
+                </span>
+              )}
             </div>
             <p className="text-white/70 text-sm truncate">
               {insp.vehicle_type === 'mercancias'
@@ -104,6 +110,7 @@ export default function VehicleList() {
   const [loading,       setLoading]      = useState(true)
   const [statusFilter,  setStatusFilter] = useState('')
   const [typeFilter,    setTypeFilter]   = useState('')
+  const [cityFilter,    setCityFilter]   = useState('')
   const [page,          setPage]         = useState(1)
   const [total,         setTotal]        = useState(0)
   const [confirmArchiveId, setConfirmArchiveId] = useState(null)
@@ -126,7 +133,7 @@ export default function VehicleList() {
     setPage(1)
   }
 
-  async function load(p = page, filter = statusFilter, type = typeFilter, q = search, arch = archived) {
+  async function load(p = page, filter = statusFilter, type = typeFilter, q = search, arch = archived, city = cityFilter) {
     setLoading(true)
     try {
       const params = { page: p, page_size: PAGE_SIZE }
@@ -134,6 +141,7 @@ export default function VehicleList() {
       if (type)    params.vehicle_type = type
       if (q)       params.search       = q
       if (arch)    params.archived     = true
+      if (city)    params.city         = city
       const { data } = await api.get('/vehicles', { params })
       setItems(data?.items ?? [])
       setTotal(data?.total ?? 0)
@@ -144,8 +152,8 @@ export default function VehicleList() {
     }
   }
 
-  useEffect(() => { setPage(1); load(1, statusFilter, typeFilter, search, archived) }, [statusFilter, typeFilter, archived])
-  useEffect(() => { load(page, statusFilter, typeFilter, search, archived) }, [page, search])
+  useEffect(() => { setPage(1); load(1, statusFilter, typeFilter, search, archived, cityFilter) }, [statusFilter, typeFilter, archived, cityFilter])
+  useEffect(() => { load(page, statusFilter, typeFilter, search, archived, cityFilter) }, [page, search])
 
   async function handleArchive(inspId) {
     if (confirmArchiveId !== inspId) {
@@ -249,6 +257,31 @@ export default function VehicleList() {
         ))}
       </div>
 
+      {/* ── Row 2b: Sucursal filter ── */}
+      <div className="px-4 py-2 flex gap-1.5 border-b border-white/5 overflow-x-auto">
+        <button
+          onClick={() => setCityFilter('')}
+          className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider transition-colors min-h-[30px] whitespace-nowrap flex-shrink-0 ${
+            cityFilter === ''
+              ? 'bg-white/15 text-white border border-white/30'
+              : 'text-white/30 border border-white/8 hover:text-white/60'
+          }`}
+        >
+          TODAS LAS SUCURSALES
+        </button>
+        {CITIES.map(c => (
+          <button
+            key={c}
+            onClick={() => setCityFilter(c)}
+            className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider transition-colors min-h-[30px] whitespace-nowrap flex-shrink-0 border ${
+              cityFilter === c ? cityBadgeClass(c) : 'text-white/30 border-white/8 hover:text-white/60'
+            }`}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+
       {/* ── Row 3: Search bar ── */}
       <div className="px-4 py-2.5 border-b border-white/5">
         <div className="relative flex items-center">
@@ -274,6 +307,7 @@ export default function VehicleList() {
           statusFilter={statusFilter}
           vehicleTypeFilter={typeFilter}
           search={search}
+          cityFilter={cityFilter}
         />
       ) : (
         <div className="px-4 py-4 space-y-3 pb-28">
