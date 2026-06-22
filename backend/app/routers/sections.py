@@ -5,7 +5,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session, joinedload
 from ..database import get_db
-from ..models import Trailer, Section, SectionStatus, User
+from ..models import Trailer, Section, SectionStatus, TrailerStatus, User
 from ..auth import require_trailer_agent
 from ..schemas import SectionOut, SectionDoneBody
 from ..audit import log_action
@@ -76,6 +76,8 @@ async def upload_photos(
 
     trailer = _get_trailer_or_404(db, trailer_id)
     assert_can_edit_trailer(db, current_user, trailer)
+    if trailer.status == TrailerStatus.completed:
+        raise HTTPException(status_code=400, detail="El trailer ya está cerrado")
     section = _get_section(db, trailer_id, section_number)
     if section.status == SectionStatus.done:
         raise HTTPException(status_code=400, detail="La sección ya está marcada como hecha")
@@ -126,6 +128,8 @@ def delete_section_photo(
 ):
     trailer = _get_trailer_or_404(db, trailer_id)
     assert_can_edit_trailer(db, current_user, trailer)
+    if trailer.status == TrailerStatus.completed:
+        raise HTTPException(status_code=400, detail="El trailer ya está cerrado")
     section = _get_section(db, trailer_id, section_number)
     if section.status == SectionStatus.done:
         raise HTTPException(status_code=400, detail="La sección ya está marcada como hecha")
@@ -160,6 +164,8 @@ def mark_section_done(
 ):
     trailer = _get_trailer_or_404(db, trailer_id)
     assert_can_edit_trailer(db, current_user, trailer)
+    if trailer.status == TrailerStatus.completed:
+        raise HTTPException(status_code=400, detail="El trailer ya está cerrado")
     section = _get_section(db, trailer_id, section_number)
 
     if not section.photos:
@@ -178,6 +184,37 @@ def mark_section_done(
         db,
         current_user.id,
         "section_marked_done",
+        "section",
+        str(section.id),
+        {"section_number": section_number},
+    )
+    return section
+
+
+@router.patch("/{trailer_id}/sections/{section_number}/reopen", response_model=SectionOut)
+def reopen_section(
+    trailer_id: uuid.UUID,
+    section_number: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_trailer_agent),
+):
+    trailer = _get_trailer_or_404(db, trailer_id)
+    assert_can_edit_trailer(db, current_user, trailer)
+    if trailer.status == TrailerStatus.completed:
+        raise HTTPException(status_code=400, detail="El trailer ya está cerrado, no se puede reabrir la sección")
+    section = _get_section(db, trailer_id, section_number)
+
+    section.status = SectionStatus.pending
+    section.photos = []
+    section.notes = None
+    section.updated_by = current_user.id
+    db.commit()
+    db.refresh(section)
+
+    log_action(
+        db,
+        current_user.id,
+        "section_reopened",
         "section",
         str(section.id),
         {"section_number": section_number},

@@ -1,13 +1,13 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Camera, CheckCircle, ChevronLeft, ChevronRight, Loader } from 'lucide-react'
+import { X, Camera, CheckCircle, ChevronLeft, ChevronRight, Loader, RotateCcw } from 'lucide-react'
 import api from '../lib/api'
 import { mediaUrl, thumbUrl } from '../lib/mediaUrl'
 import { compressImage } from '../lib/compressImage'
 
 const DOOR_SECTIONS = [4, 8]
 
-export default function SectionSheet({ trailerId, sectionNumber, section, onClose, onUpdate }) {
+export default function SectionSheet({ trailerId, sectionNumber, section, onClose, onUpdate, readOnly = false }) {
   const [photos, setPhotos] = useState(section?.photos || [])
   const [notes, setNotes] = useState(section?.notes || '')
   const [uploading, setUploading] = useState(false)
@@ -15,6 +15,8 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
   const [done, setDone] = useState(section?.status === 'done')
   const [lightbox, setLightbox] = useState(null)
   const [removingPhoto, setRemovingPhoto] = useState(null)
+  const [reopening, setReopening] = useState(false)
+  const [confirmReopen, setConfirmReopen] = useState(false)
   const fileRef = useRef()
 
   const isDoorSection = DOOR_SECTIONS.includes(sectionNumber)
@@ -64,6 +66,27 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
       alert(apiError(err))
     } finally {
       setRemovingPhoto(null)
+    }
+  }
+
+  async function handleReopen() {
+    if (!confirmReopen) {
+      setConfirmReopen(true)
+      setTimeout(() => setConfirmReopen(false), 4000)
+      return
+    }
+    setReopening(true)
+    try {
+      const { data } = await api.patch(`/trailers/${trailerId}/sections/${sectionNumber}/reopen`)
+      setPhotos([])
+      setNotes('')
+      setDone(false)
+      setConfirmReopen(false)
+      onUpdate(data)
+    } catch (err) {
+      alert(apiError(err))
+    } finally {
+      setReopening(false)
     }
   }
 
@@ -217,16 +240,38 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
           </div>
 
           {/* Footer CTA */}
-          <div className="p-4 border-t border-white/10">
+          <div className="p-4 border-t border-white/10 space-y-2">
             {done ? (
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="flex items-center justify-center gap-2 min-h-[56px] bg-[#16a34a22] border border-[#22C55E] text-[#22C55E] font-bold text-base"
-              >
-                <CheckCircle size={22} />
-                Sección documentada ✓
-              </motion.div>
+              <>
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="flex items-center justify-center gap-2 min-h-[56px] bg-[#16a34a22] border border-[#22C55E] text-[#22C55E] font-bold text-base"
+                >
+                  <CheckCircle size={22} />
+                  Sección documentada ✓
+                </motion.div>
+                {!readOnly && (
+                  <button
+                    onClick={handleReopen}
+                    disabled={reopening}
+                    className={`w-full min-h-[48px] flex items-center justify-center gap-2 font-mono text-sm transition-all border disabled:opacity-50 ${
+                      confirmReopen
+                        ? 'border-red-500/60 bg-red-500/10 text-red-400'
+                        : 'border-white/10 text-white/40 hover:text-white hover:border-white/30'
+                    }`}
+                  >
+                    {reopening ? (
+                      <Loader size={15} className="animate-spin" />
+                    ) : (
+                      <>
+                        <RotateCcw size={15} />
+                        {confirmReopen ? '¿Borrar fotos y reabrir? Toca de nuevo' : 'Reabrir sección (me equivoqué)'}
+                      </>
+                    )}
+                  </button>
+                )}
+              </>
             ) : (
               <button
                 onClick={handleMarkDone}

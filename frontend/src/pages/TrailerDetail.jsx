@@ -292,6 +292,7 @@ export default function TrailerDetail() {
             section={{ ...selectedSection, status: 'done' }}
             onClose={() => setSelected(null)}
             onUpdate={() => {}}
+            readOnly
           />
         )}
       </AnimatePresence>
