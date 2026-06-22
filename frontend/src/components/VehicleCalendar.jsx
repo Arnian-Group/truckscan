@@ -122,6 +122,11 @@ function MiniCard({ insp, onClick }) {
               {[insp.make, insp.model].filter(Boolean).join(' ')}
             </p>
           )}
+          {insp.vehicle_type !== 'mercancias' && insp.vin && (
+            <p className="text-[11px] text-[#F5A623] font-mono font-bold tracking-wide truncate">
+              VIN: {insp.vin}
+            </p>
+          )}
           <p className="text-[11px] text-white/40 font-mono truncate">
             {insp.nombre || insp.nombre_entrega || 'Sin cliente'}
           </p>

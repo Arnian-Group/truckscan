@@ -60,6 +60,11 @@ function InspectionCard({ insp, onClick, onArchive, confirmingArchive, showArchi
                 ? (insp.mercancias_descripcion ? insp.mercancias_descripcion.slice(0, 60) : 'Recibo de mercancía')
                 : ([insp.make, insp.model, insp.color].filter(Boolean).join(' · ') || 'Sin datos')}
             </p>
+            {insp.vehicle_type !== 'mercancias' && insp.vin && (
+              <p className="text-[#F5A623] text-xs font-mono font-bold tracking-wider truncate">
+                VIN: {insp.vin}
+              </p>
+            )}
             {insp.vehicle_type === 'mercancias'
               ? (insp.nombre_entrega && <p className="text-white/40 text-xs font-mono truncate">Entrega: {insp.nombre_entrega}</p>)
               : (insp.nombre && <p className="text-white/40 text-xs font-mono truncate">{insp.nombre}</p>)}
