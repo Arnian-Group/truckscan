@@ -751,6 +751,7 @@ def list_inspections(
             or_(
                 VehicleInspection.folio.ilike(term),
                 VehicleInspection.placas.ilike(term),
+                VehicleInspection.vin.ilike(term),
                 VehicleInspection.nombre.ilike(term),
             )
         )

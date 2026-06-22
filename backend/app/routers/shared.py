@@ -10,6 +10,7 @@ from ..database import get_db
 from ..models import User, VehicleInspection, VehicleDamage, SharedLink
 from ..auth import require_admin, require_vehicle_agent
 from ..schemas import VehicleInspectionOut, SharedLinkOut, SharedLinkCreate
+from ..permissions import assert_can_edit_inspection
 
 router = APIRouter()
 
@@ -58,6 +59,13 @@ def list_links_for_inspection(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vehicle_agent),
 ):
+    insp = db.query(VehicleInspection).filter(
+        VehicleInspection.id == inspection_id,
+        VehicleInspection.is_deleted == False,
+    ).first()
+    if not insp:
+        raise HTTPException(404, "Inspección no encontrada")
+    assert_can_edit_inspection(db, current_user, insp)
     links = (
         db.query(SharedLink)
         .options(joinedload(SharedLink.inspection))
@@ -74,7 +82,7 @@ def list_links_for_inspection(
 def create_link(
     body: SharedLinkCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_vehicle_agent),
 ):
     insp = db.query(VehicleInspection).filter(
         VehicleInspection.id == body.inspection_id,
@@ -82,6 +90,7 @@ def create_link(
     ).first()
     if not insp:
         raise HTTPException(404, "Inspección no encontrada")
+    assert_can_edit_inspection(db, current_user, insp)
 
     expires_at = None
     if body.expires_hours:
@@ -109,11 +118,15 @@ def create_link(
 def revoke_link(
     link_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_vehicle_agent),
 ):
-    link = db.query(SharedLink).filter(SharedLink.id == link_id).first()
+    link = db.query(SharedLink).options(joinedload(SharedLink.inspection)).filter(SharedLink.id == link_id).first()
     if not link:
         raise HTTPException(404, "Enlace no encontrado")
+    if link.inspection:
+        assert_can_edit_inspection(db, current_user, link.inspection)
+    elif not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="No tienes permiso para revocar este enlace")
     link.revoked_at = _utcnow()
     db.commit()
 

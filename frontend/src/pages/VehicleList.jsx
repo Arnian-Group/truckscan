@@ -294,7 +294,7 @@ export default function VehicleList() {
             type="text"
             value={searchInput}
             onChange={e => handleSearchChange(e.target.value)}
-            placeholder="Buscar por folio, placas o cliente..."
+            placeholder="Buscar por folio, placas, VIN o cliente..."
             className="w-full bg-[#1e2535] border border-white/10 text-white text-sm pl-8 pr-8 py-2.5 focus:outline-none focus:border-[#F5A623] placeholder-white/20 font-mono"
           />
           {searchInput && (
