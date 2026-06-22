@@ -4,7 +4,7 @@ import { X, Camera, Trash2 } from 'lucide-react'
 import { compressImage } from '../lib/compressImage'
 
 const DAMAGE_TYPES = [
-  { id: 'condition', label: 'Condition', labelEs: 'Sin daño',  color: '#22C55E' },
+  { id: 'condition', label: 'General',   labelEs: 'Foto general (sin daño)', color: '#22C55E' },
   { id: 'scratched', label: 'Scratched', labelEs: 'Rallado',   color: '#EF4444' },
   { id: 'dented',    label: 'Dented',    labelEs: 'Abollado',  color: '#F97316' },
   { id: 'stained',   label: 'Stained',   labelEs: 'Manchado',  color: '#3B82F6' },

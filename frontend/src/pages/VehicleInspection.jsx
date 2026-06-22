@@ -9,6 +9,11 @@ import api from '../lib/api'
 import { canEditDoc, canManageEditors } from '../lib/auth'
 import { mediaUrl } from '../lib/mediaUrl'
 
+const DAMAGE_TYPE_LABELS = {
+  condition: 'General', scratched: 'Rallado', dented: 'Abollado',
+  stained: 'Manchado', cracked: 'Quebrado', missing: 'Faltante', other: 'Otro',
+}
+
 const VIEWS = [
   { id: 'front',    label: 'Front',    labelEs: 'Frontal' },
   { id: 'right',    label: 'Right',    labelEs: 'Der.' },
@@ -226,7 +231,7 @@ export default function VehicleInspection() {
                     {i + 1}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <span className="text-xs font-mono text-white/70 capitalize">{d.damage_type}</span>
+                    <span className="text-xs font-mono text-white/70">{DAMAGE_TYPE_LABELS[d.damage_type] || d.damage_type}</span>
                     {d.description && <p className="text-xs text-white/40 truncate">{d.description}</p>}
                   </div>
                   {d.photos?.length > 0 && (
@@ -280,7 +285,7 @@ export default function VehicleInspection() {
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold capitalize">{selectedDamage.damage_type} — {selectedDamage.view}</h3>
+                <h3 className="font-bold">{DAMAGE_TYPE_LABELS[selectedDamage.damage_type] || selectedDamage.damage_type} — {selectedDamage.view}</h3>
                 <button onClick={() => setSelectedDamage(null)} className="p-2 text-white/50 min-w-[44px] min-h-[44px] flex items-center justify-center">
                   ✕
                 </button>
