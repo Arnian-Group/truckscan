@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, CheckCircle, Plus, FileText, Printer, Download } from 'lucide-react'
+import { Loader, CheckCircle, Plus, FileText, Printer, Download, Users } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import DamageSheet from '../components/DamageSheet'
+import EditorsModal from '../components/EditorsModal'
 import api from '../lib/api'
-import { canEditDoc } from '../lib/auth'
+import { canEditDoc, canManageEditors } from '../lib/auth'
 import { mediaUrl } from '../lib/mediaUrl'
 
 const VIEWS = [
@@ -29,6 +30,7 @@ export default function VehicleInspection() {
   const [confirmFinish, setConfirmFinish] = useState(false)
   const [notasFinales, setNotasFinales] = useState('')
   const [selectedDamage, setSelectedDamage] = useState(null)
+  const [editorsModal, setEditorsModal] = useState(false)
 
   async function load() {
     try {
@@ -152,6 +154,19 @@ export default function VehicleInspection() {
             >
               <Download size={13} />
               Descargar
+            </button>
+          </div>
+        )}
+
+        {/* Editores invitados */}
+        {canManageEditors(insp) && (
+          <div className="flex items-center bg-[#0d1520] border-b border-white/5 flex-shrink-0">
+            <button
+              onClick={() => setEditorsModal(true)}
+              className="flex items-center gap-2 px-3 py-2.5 text-xs font-mono text-white/50 hover:text-white transition-colors min-h-[40px] w-full"
+            >
+              <Users size={14} className="text-[#F5A623] shrink-0" />
+              Editores invitados{insp?.editor_ids?.length > 0 ? ` (${insp.editor_ids.length})` : ''}
             </button>
           </div>
         )}
@@ -333,6 +348,15 @@ export default function VehicleInspection() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {editorsModal && (
+        <EditorsModal
+          module="vehicles"
+          docId={id}
+          onClose={() => setEditorsModal(false)}
+          onChange={() => api.get(`/vehicles/${id}`).then(({ data }) => setInsp(data)).catch(console.error)}
+        />
+      )}
     </Layout>
   )
 }

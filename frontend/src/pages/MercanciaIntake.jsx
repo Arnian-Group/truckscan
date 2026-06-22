@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, X, ChevronDown, ChevronUp, Hash, Package, Camera, Trash2 } from 'lucide-react'
+import { Loader, X, ChevronDown, ChevronUp, Hash, Package, Camera, Trash2, Users } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import SignatureCanvas from '../components/SignatureCanvas'
+import EditorsModal from '../components/EditorsModal'
 import api from '../lib/api'
-import { canEditDoc } from '../lib/auth'
+import { canEditDoc, canManageEditors } from '../lib/auth'
 import { compressImage } from '../lib/compressImage'
 import { mediaUrl } from '../lib/mediaUrl'
 
@@ -190,6 +191,7 @@ export default function MercanciaIntake() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [fotos, setFotos] = useState([])
+  const [editorsModal, setEditorsModal] = useState(false)
   const fileRef = useRef(null)
 
   const [form, setForm] = useState({
@@ -304,6 +306,17 @@ export default function MercanciaIntake() {
             <Hash size={13} className="text-[#F5A623]" />
             <span className="text-[#F5A623] font-mono text-xs font-bold">{insp.folio}</span>
           </div>
+        )}
+
+        {/* Editores invitados */}
+        {canManageEditors(insp) && (
+          <button
+            onClick={() => setEditorsModal(true)}
+            className="w-full flex items-center gap-2 px-3 py-2.5 bg-[#161b27] border border-white/10 text-xs font-mono text-white/50 hover:text-white transition-colors"
+          >
+            <Users size={14} className="text-[#F5A623] shrink-0" />
+            Editores invitados{insp?.editor_ids?.length > 0 ? ` (${insp.editor_ids.length})` : ''}
+          </button>
         )}
 
         {error && (
@@ -443,6 +456,15 @@ export default function MercanciaIntake() {
           />
         )}
       </AnimatePresence>
+
+      {editorsModal && (
+        <EditorsModal
+          module="vehicles"
+          docId={id}
+          onClose={() => setEditorsModal(false)}
+          onChange={() => api.get(`/vehicles/${id}`).then(({ data }) => setInsp(data)).catch(console.error)}
+        />
+      )}
     </Layout>
   )
 }

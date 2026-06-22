@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, CheckSquare, Square, Trash2, X, ArrowRight, ChevronDown, ChevronUp, Hash } from 'lucide-react'
+import { Loader, CheckSquare, Square, Trash2, X, ArrowRight, ChevronDown, ChevronUp, Hash, Users } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import SignatureCanvas from '../components/SignatureCanvas'
+import EditorsModal from '../components/EditorsModal'
 import api from '../lib/api'
-import { isAdmin, canEditDoc } from '../lib/auth'
+import { isAdmin, canEditDoc, canManageEditors } from '../lib/auth'
 import { CITIES } from '../lib/cities'
 
 const FUEL_OPTIONS = ['E', '1/4', '1/2', '3/4', 'F']
@@ -253,6 +254,7 @@ export default function VehicleIntake() {
   const [confirmArchive, setConfirmArchive] = useState(false)
   const [nombreError, setNombreError] = useState(false)
   const [openSection, setOpenSection] = useState('cliente')
+  const [editorsModal, setEditorsModal] = useState(false)
 
   const [form, setForm] = useState({
     fecha: new Date().toISOString().split('T')[0],
@@ -393,6 +395,17 @@ export default function VehicleIntake() {
             <Hash size={13} className="text-[#F5A623] shrink-0" />
             <span className="text-xs font-mono text-[#F5A623]">{insp.folio}</span>
           </div>
+        )}
+
+        {/* Editores invitados */}
+        {canManageEditors(insp) && (
+          <button
+            onClick={() => setEditorsModal(true)}
+            className="w-full flex items-center gap-2 px-3 py-2.5 bg-[#0d1520] border border-white/10 text-xs font-mono text-white/50 hover:text-white transition-colors"
+          >
+            <Users size={14} className="text-[#F5A623] shrink-0" />
+            Editores invitados{insp?.editor_ids?.length > 0 ? ` (${insp.editor_ids.length})` : ''}
+          </button>
         )}
 
         {/* Cliente section */}
@@ -567,6 +580,15 @@ export default function VehicleIntake() {
           />
         )}
       </AnimatePresence>
+
+      {editorsModal && (
+        <EditorsModal
+          module="vehicles"
+          docId={id}
+          onClose={() => setEditorsModal(false)}
+          onChange={() => api.get(`/vehicles/${id}`).then(({ data }) => setInsp(data)).catch(console.error)}
+        />
+      )}
     </Layout>
   )
 }
