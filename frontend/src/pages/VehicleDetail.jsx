@@ -553,7 +553,12 @@ export default function VehicleDetail() {
       </div>
 
       {shareModal && (
-        <ShareModal inspectionId={id} onClose={() => setShareModal(false)} />
+        <ShareModal
+          inspectionId={id}
+          entryNumber={insp.entry_number}
+          onEntryNumberSaved={v => setInsp(prev => ({ ...prev, entry_number: v }))}
+          onClose={() => setShareModal(false)}
+        />
       )}
 
       {editorsModal && (

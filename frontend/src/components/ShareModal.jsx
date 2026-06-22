@@ -40,11 +40,12 @@ function CopyBtn({ text }) {
   )
 }
 
-export default function ShareModal({ inspectionId, onClose }) {
+export default function ShareModal({ inspectionId, entryNumber: initialEntryNumber, onEntryNumberSaved, onClose }) {
   const [links,        setLinks]        = useState([])
   const [loading,      setLoading]      = useState(true)
   const [creating,     setCreating]     = useState(false)
   const [label,        setLabel]        = useState('')
+  const [entryNumber,  setEntryNumber]  = useState(initialEntryNumber || '')
   const [expiryHours,  setExpiryHours]  = useState(24 * 7)
   const [revoking,     setRevoking]     = useState(null)
   const [newLink,      setNewLink]      = useState(null)
@@ -72,10 +73,12 @@ export default function ShareModal({ inspectionId, onClose }) {
         inspection_id: inspectionId,
         label: label.trim() || null,
         expires_hours: expiryHours,
+        entry_number: entryNumber.trim() || null,
       })
       setNewLink(data)
       setLinks(prev => [data, ...prev])
       setLabel('')
+      if (data.entry_number) onEntryNumberSaved?.(data.entry_number)
     } catch (e) {
       alert(e.response?.data?.detail || 'Error al crear enlace')
     } finally {
@@ -142,13 +145,23 @@ export default function ShareModal({ inspectionId, onClose }) {
           {/* Create form */}
           <div className="space-y-3">
             <p className="text-[11px] font-mono text-white/40 uppercase tracking-wider">Nuevo enlace</p>
-            <input
-              type="text"
-              value={label}
-              onChange={e => setLabel(e.target.value)}
-              placeholder="Etiqueta (ej: Cliente Nombre / Motivo)"
-              className="w-full bg-[#1e2535] border border-white/10 text-white text-sm px-3 py-2.5 focus:outline-none focus:border-[#F5A623] placeholder-white/20 font-mono"
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={label}
+                onChange={e => setLabel(e.target.value)}
+                placeholder="Etiqueta (ej: Cliente Nombre / Motivo)"
+                className="flex-1 min-w-0 bg-[#1e2535] border border-white/10 text-white text-sm px-3 py-2.5 focus:outline-none focus:border-[#F5A623] placeholder-white/20 font-mono"
+              />
+              <input
+                type="text"
+                value={entryNumber}
+                onChange={e => setEntryNumber(e.target.value)}
+                placeholder="Núm. entrada"
+                maxLength={10}
+                className="w-28 shrink-0 bg-[#1e2535] border border-white/10 text-white text-sm px-3 py-2.5 focus:outline-none focus:border-[#F5A623] placeholder-white/20 font-mono"
+              />
+            </div>
             <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
               {EXPIRY_OPTIONS.map(opt => (
                 <button
@@ -191,6 +204,9 @@ export default function ShareModal({ inspectionId, onClose }) {
                         <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 border shrink-0 ${st.cls}`}>
                           {st.label}
                         </span>
+                        {link.entry_number && (
+                          <span className="text-xs text-[#F5A623]/70 font-bold shrink-0">#{link.entry_number}</span>
+                        )}
                         {link.label && (
                           <span className="text-xs text-white/60 truncate">{link.label}</span>
                         )}

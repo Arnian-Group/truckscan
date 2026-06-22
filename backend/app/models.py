@@ -145,6 +145,7 @@ class VehicleInspection(Base):
     mercancias_descripcion = Column(Text, nullable=True)
     nombre_entrega = Column(String(255), nullable=True)
     mercancias_fotos = Column(JSON, nullable=True, default=list)
+    entry_number = Column(String(10), nullable=True)
 
     firma_origen = Column(Text, nullable=True)
     nombre_firma_origen = Column(String(255), nullable=True)

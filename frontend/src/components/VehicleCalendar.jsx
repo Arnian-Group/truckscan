@@ -122,6 +122,9 @@ function MiniCard({ insp, onClick }) {
             {insp.folio && (
               <span className="text-[10px] font-mono text-[#F5A623]/50 shrink-0">{insp.folio}</span>
             )}
+            {insp.entry_number && (
+              <span className="text-[10px] font-mono text-white/30 shrink-0">#{insp.entry_number}</span>
+            )}
             {insp.city && (
               <span className={`text-[9px] font-mono font-bold px-1 py-0.5 border uppercase shrink-0 ${cityBadgeClass(insp.city)}`}>
                 {insp.city}

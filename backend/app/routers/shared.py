@@ -32,6 +32,7 @@ def _link_out(link: SharedLink) -> SharedLinkOut:
         created_at=link.created_at,
         created_by=link.created_by,
         folio=link.inspection.folio if link.inspection else None,
+        entry_number=link.inspection.entry_number if link.inspection else None,
     )
 
 
@@ -91,6 +92,9 @@ def create_link(
     if not insp:
         raise HTTPException(404, "Inspección no encontrada")
     assert_can_edit_inspection(db, current_user, insp)
+
+    if body.entry_number and body.entry_number.strip():
+        insp.entry_number = body.entry_number.strip()
 
     expires_at = None
     if body.expires_hours:

@@ -142,6 +142,9 @@ export default function ShareLinks() {
                   <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 border ${st.cls}`}>
                     {st.label}
                   </span>
+                  {link.entry_number && (
+                    <span className="font-mono text-xs font-bold text-[#F5A623]/70">#{link.entry_number}</span>
+                  )}
                   {link.label && (
                     <span className="text-xs text-white/50 truncate">{link.label}</span>
                   )}

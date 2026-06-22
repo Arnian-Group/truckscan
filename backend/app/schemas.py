@@ -233,6 +233,7 @@ class VehicleInspectionOut(BaseModel):
     checklist: Optional[dict]
     mercancias_descripcion: Optional[str]
     nombre_entrega: Optional[str]
+    entry_number: Optional[str] = None
     mercancias_fotos: Optional[list] = []
     firma_origen: Optional[str]
     nombre_firma_origen: Optional[str]
@@ -265,6 +266,7 @@ class VehicleInspectionListItem(BaseModel):
     city: Optional[str]
     nombre: Optional[str]
     nombre_entrega: Optional[str]
+    entry_number: Optional[str] = None
     mercancias_descripcion: Optional[str]
     year: Optional[int]
     make: Optional[str]
@@ -298,6 +300,7 @@ class SharedLinkCreate(BaseModel):
     inspection_id: UUID
     label: str
     expires_hours: Optional[int] = None  # None = never expires
+    entry_number: Optional[str] = None  # if set, saved onto the inspection
 
 
 class SharedLinkOut(BaseModel):
@@ -312,5 +315,6 @@ class SharedLinkOut(BaseModel):
     created_at: datetime
     created_by: UUID
     folio: Optional[str] = None  # populated from inspection
+    entry_number: Optional[str] = None  # populated from inspection
 
     model_config = {"from_attributes": True}

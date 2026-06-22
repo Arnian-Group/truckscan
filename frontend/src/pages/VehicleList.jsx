@@ -84,8 +84,12 @@ function InspectionCard({ insp, onClick, onArchive, confirmingArchive, showArchi
           </span>
         </div>
         <div className="flex justify-between text-xs text-white/25 font-mono mt-2">
-          <span>{insp.folio ? <span className="text-[#F5A623]/50">{insp.folio}</span> : (insp.city || '—')}</span>
-          <span>{new Date(insp.created_at).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}</span>
+          <span className="flex items-center gap-2 truncate">
+            {insp.folio && <span className="text-[#F5A623]/50">{insp.folio}</span>}
+            {insp.entry_number && <span className="text-white/40">#{insp.entry_number}</span>}
+            {!insp.folio && !insp.entry_number && (insp.city || '—')}
+          </span>
+          <span className="shrink-0">{new Date(insp.created_at).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}</span>
         </div>
       </motion.div>
       {canArchive && (

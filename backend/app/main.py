@@ -114,6 +114,9 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE vehicle_inspections ADD COLUMN IF NOT EXISTS mercancias_fotos JSON"
         ))
         conn.execute(text(
+            "ALTER TABLE vehicle_inspections ADD COLUMN IF NOT EXISTS entry_number VARCHAR(10)"
+        ))
+        conn.execute(text(
             "ALTER TYPE vehicletype ADD VALUE IF NOT EXISTS 'mercancias'"
         ))
         conn.commit()
