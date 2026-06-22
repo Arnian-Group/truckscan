@@ -178,6 +178,7 @@ class SignBody(BaseModel):
 class VehicleDamageUpdate(BaseModel):
     damage_type: Optional[str] = None
     description: Optional[str] = None
+    photos: Optional[List[str]] = None
 
 
 class UserUpdate(BaseModel):

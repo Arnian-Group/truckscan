@@ -13,6 +13,7 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
   const [marking, setMarking] = useState(false)
   const [done, setDone] = useState(section?.status === 'done')
   const [lightbox, setLightbox] = useState(null)
+  const [removingPhoto, setRemovingPhoto] = useState(null)
   const fileRef = useRef()
 
   const isDoorSection = DOOR_SECTIONS.includes(sectionNumber)
@@ -45,6 +46,22 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  async function handleRemovePhoto(photoPath) {
+    setRemovingPhoto(photoPath)
+    try {
+      const { data } = await api.delete(
+        `/trailers/${trailerId}/sections/${sectionNumber}/photos`,
+        { params: { photo: photoPath } }
+      )
+      setPhotos(data.photos)
+      onUpdate(data)
+    } catch (err) {
+      alert(apiError(err))
+    } finally {
+      setRemovingPhoto(null)
     }
   }
 
@@ -129,17 +146,27 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
             {photos.length > 0 && (
               <div className="grid grid-cols-3 gap-2">
                 {photos.map((src, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setLightbox(i)}
-                    className="aspect-square bg-[#1e2535] overflow-hidden"
-                  >
-                    <img
-                      src={mediaUrl(src)}
-                      alt={`Photo ${i + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </button>
+                  <div key={i} className="relative aspect-square">
+                    <button
+                      onClick={() => setLightbox(i)}
+                      className="absolute inset-0 bg-[#1e2535] overflow-hidden"
+                    >
+                      <img
+                        src={mediaUrl(src)}
+                        alt={`Photo ${i + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                    {!done && (
+                      <button
+                        onClick={() => handleRemovePhoto(src)}
+                        disabled={removingPhoto === src}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white disabled:opacity-50"
+                      >
+                        <X size={10} />
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

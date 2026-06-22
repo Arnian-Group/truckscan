@@ -1050,6 +1050,8 @@ def update_damage(
 ):
     insp = _get_inspection(db, inspection_id)
     assert_can_edit_inspection(db, current_user, insp)
+    if insp.status == InspectionStatus.completed:
+        raise HTTPException(status_code=400, detail="La inspección ya está completada")
     damage = db.query(VehicleDamage).filter(
         VehicleDamage.id == damage_id,
         VehicleDamage.inspection_id == inspection_id,

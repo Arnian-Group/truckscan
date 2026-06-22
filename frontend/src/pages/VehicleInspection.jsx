@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, CheckCircle, Plus, FileText, Printer, Download, Users } from 'lucide-react'
+import { Loader, CheckCircle, Plus, FileText, Printer, Download, Users, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import DamageSheet from '../components/DamageSheet'
@@ -92,6 +92,19 @@ export default function VehicleInspection() {
       setSelectedDamage(null)
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al eliminar')
+    }
+  }
+
+  async function handleRemovePhoto(dmgId, photoIdx) {
+    const dmg = insp.damages.find(d => d.id === dmgId)
+    if (!dmg) return
+    const newPhotos = dmg.photos.filter((_, i) => i !== photoIdx)
+    try {
+      const { data } = await api.patch(`/vehicles/${id}/damages/${dmgId}`, { photos: newPhotos })
+      setInsp(prev => ({ ...prev, damages: prev.damages.map(d => d.id === dmgId ? data : d) }))
+      setSelectedDamage(data)
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Error al eliminar foto')
     }
   }
 
@@ -296,7 +309,15 @@ export default function VehicleInspection() {
               {selectedDamage.photos?.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-4">
                   {selectedDamage.photos.map((p, i) => (
-                    <img key={i} src={mediaUrl(p)} alt="" className="w-20 h-20 object-cover border border-white/10" />
+                    <div key={i} className="relative">
+                      <img src={mediaUrl(p)} alt="" className="w-20 h-20 object-cover border border-white/10" />
+                      <button
+                        onClick={() => handleRemovePhoto(selectedDamage.id, i)}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white"
+                      >
+                        <X size={10} />
+                      </button>
+                    </div>
                   ))}
                 </div>
               )}

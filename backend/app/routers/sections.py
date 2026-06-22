@@ -2,7 +2,7 @@ import uuid
 import os
 import shutil
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from sqlalchemy.orm import Session, joinedload
 from ..database import get_db
 from ..models import Trailer, Section, SectionStatus, User
@@ -77,6 +77,8 @@ async def upload_photos(
     trailer = _get_trailer_or_404(db, trailer_id)
     assert_can_edit_trailer(db, current_user, trailer)
     section = _get_section(db, trailer_id, section_number)
+    if section.status == SectionStatus.done:
+        raise HTTPException(status_code=400, detail="La sección ya está marcada como hecha")
 
     saved_paths: List[str] = []
     section_dir = os.path.join(settings.UPLOADS_DIR, str(trailer_id), str(section_number))
@@ -110,6 +112,40 @@ async def upload_photos(
         "section",
         str(section.id),
         {"section_number": section_number, "count": len(saved_paths)},
+    )
+    return section
+
+
+@router.delete("/{trailer_id}/sections/{section_number}/photos", response_model=SectionOut)
+def delete_section_photo(
+    trailer_id: uuid.UUID,
+    section_number: int,
+    photo: str = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_trailer_agent),
+):
+    trailer = _get_trailer_or_404(db, trailer_id)
+    assert_can_edit_trailer(db, current_user, trailer)
+    section = _get_section(db, trailer_id, section_number)
+    if section.status == SectionStatus.done:
+        raise HTTPException(status_code=400, detail="La sección ya está marcada como hecha")
+
+    photos = list(section.photos or [])
+    if photo not in photos:
+        raise HTTPException(status_code=404, detail="Foto no encontrada")
+    photos.remove(photo)
+    section.photos = photos
+    section.updated_by = current_user.id
+    db.commit()
+    db.refresh(section)
+
+    log_action(
+        db,
+        current_user.id,
+        "section_photo_deleted",
+        "section",
+        str(section.id),
+        {"section_number": section_number},
     )
     return section
 
