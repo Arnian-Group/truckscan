@@ -753,6 +753,7 @@ def list_inspections(
                 VehicleInspection.placas.ilike(term),
                 VehicleInspection.vin.ilike(term),
                 VehicleInspection.nombre.ilike(term),
+                VehicleInspection.entry_number.ilike(term),
             )
         )
     total = q.count()
