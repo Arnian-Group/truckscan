@@ -2,7 +2,8 @@ import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Camera, CheckCircle, ChevronLeft, ChevronRight, Loader } from 'lucide-react'
 import api from '../lib/api'
-import { mediaUrl } from '../lib/mediaUrl'
+import { mediaUrl, thumbUrl } from '../lib/mediaUrl'
+import { compressImage } from '../lib/compressImage'
 
 const DOOR_SECTIONS = [4, 8]
 
@@ -32,8 +33,9 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
     if (!files.length) return
     setUploading(true)
     try {
+      const compressed = await Promise.all(files.map((f) => compressImage(f)))
       const form = new FormData()
-      files.forEach((f) => form.append('files', f))
+      compressed.forEach((f) => form.append('files', f))
       // No poner Content-Type a mano — axios lo setea con el boundary correcto
       const { data } = await api.post(
         `/trailers/${trailerId}/sections/${sectionNumber}/photos`,
@@ -152,7 +154,8 @@ export default function SectionSheet({ trailerId, sectionNumber, section, onClos
                       className="absolute inset-0 bg-[#1e2535] overflow-hidden"
                     >
                       <img
-                        src={mediaUrl(src)}
+                        src={thumbUrl(src)}
+                        loading="lazy"
                         alt={`Photo ${i + 1}`}
                         className="w-full h-full object-cover"
                       />

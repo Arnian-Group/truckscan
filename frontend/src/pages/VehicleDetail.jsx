@@ -7,7 +7,7 @@ import ShareModal from '../components/ShareModal'
 import EditorsModal from '../components/EditorsModal'
 import api from '../lib/api'
 import { isAdmin, canEditDoc, canManageEditors } from '../lib/auth'
-import { mediaUrl } from '../lib/mediaUrl'
+import { mediaUrl, thumbUrl } from '../lib/mediaUrl'
 
 const CHECKLIST_ITEMS = [
   { key: 'licencia',     label: 'Copia de Licencia' },
@@ -268,7 +268,7 @@ export default function VehicleDetail() {
                     const all = insp.mercancias_fotos.map(x => mediaUrl(x))
                     return (
                       <button key={i} onClick={() => openPhoto(all, i)} className="relative aspect-square group">
-                        <img src={mediaUrl(p)} alt="" className="w-full h-full object-cover border border-white/10 group-hover:border-[#F5A623]/60 transition-colors" />
+                        <img src={thumbUrl(p)} loading="lazy" alt="" className="w-full h-full object-cover border border-white/10 group-hover:border-[#F5A623]/60 transition-colors" />
                         <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
                           <ZoomIn size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                         </span>
@@ -302,7 +302,7 @@ export default function VehicleDetail() {
                         const all = d.photos.map(x => mediaUrl(x))
                         return (
                           <button key={i} onClick={() => openPhoto(all, i)} className="relative group">
-                            <img src={mediaUrl(p)} alt="" className="w-16 h-16 object-cover border border-white/10 group-hover:border-[#F5A623]/60 transition-colors" />
+                            <img src={thumbUrl(p)} loading="lazy" alt="" className="w-16 h-16 object-cover border border-white/10 group-hover:border-[#F5A623]/60 transition-colors" />
                             <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
                               <ZoomIn size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                             </span>
@@ -354,7 +354,7 @@ export default function VehicleDetail() {
                               const all = d.photos.map(x => mediaUrl(x))
                               return (
                                 <button key={i} onClick={() => openPhoto(all, i)} className="relative group">
-                                  <img src={mediaUrl(p)} alt="" className="w-16 h-16 object-cover border border-white/10 group-hover:border-[#F5A623]/60 transition-colors" />
+                                  <img src={thumbUrl(p)} loading="lazy" alt="" className="w-16 h-16 object-cover border border-white/10 group-hover:border-[#F5A623]/60 transition-colors" />
                                   <span className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
                                     <ZoomIn size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                                   </span>

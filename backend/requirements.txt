@@ -13,3 +13,4 @@ pydantic-settings==2.5.2
 email-validator==2.2.0
 aiofiles==24.1.0
 reportlab==4.2.5
+Pillow==10.4.0

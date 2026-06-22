@@ -5,9 +5,9 @@ import { AnimatePresence, motion } from 'framer-motion'
 
 const API = import.meta.env.VITE_API_URL || ''
 
-function sharedMedia(path, token) {
+function sharedMedia(path, token, thumb = false) {
   if (!path) return ''
-  return `${API}${path}?share_token=${encodeURIComponent(token)}`
+  return `${API}${path}?share_token=${encodeURIComponent(token)}${thumb ? '&thumb=1' : ''}`
 }
 
 const CHECKLIST_ITEMS = [
@@ -247,7 +247,7 @@ export default function SharedView() {
             <div className="grid grid-cols-3 gap-1.5">
               {insp.mercancias_fotos.map((p, i) => (
                 <button key={i} onClick={() => openPhoto(insp.mercancias_fotos.map(x => sharedMedia(x, shareToken)), i)} className="aspect-square bg-[#161b27] border border-white/10 overflow-hidden">
-                  <img src={sharedMedia(p, shareToken)} alt="" className="w-full h-full object-cover" />
+                  <img src={sharedMedia(p, shareToken, true)} loading="lazy" alt="" className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>
@@ -283,7 +283,7 @@ export default function SharedView() {
                                 onClick={() => openPhoto(d.photos.map(x => sharedMedia(x, shareToken)), i)}
                                 className="aspect-square bg-[#1e2535] border border-white/5 overflow-hidden"
                               >
-                                <img src={sharedMedia(p, shareToken)} alt="" className="w-full h-full object-cover" />
+                                <img src={sharedMedia(p, shareToken, true)} loading="lazy" alt="" className="w-full h-full object-cover" />
                               </button>
                             ))}
                           </div>

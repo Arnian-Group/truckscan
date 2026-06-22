@@ -7,7 +7,7 @@ import DamageSheet from '../components/DamageSheet'
 import EditorsModal from '../components/EditorsModal'
 import api from '../lib/api'
 import { canEditDoc, canManageEditors } from '../lib/auth'
-import { mediaUrl } from '../lib/mediaUrl'
+import { thumbUrl } from '../lib/mediaUrl'
 
 const DAMAGE_TYPE_LABELS = {
   condition: 'General', scratched: 'Rallado', dented: 'Abollado',
@@ -310,7 +310,7 @@ export default function VehicleInspection() {
                 <div className="flex flex-wrap gap-2 mb-4">
                   {selectedDamage.photos.map((p, i) => (
                     <div key={i} className="relative">
-                      <img src={mediaUrl(p)} alt="" className="w-20 h-20 object-cover border border-white/10" />
+                      <img src={thumbUrl(p)} loading="lazy" alt="" className="w-20 h-20 object-cover border border-white/10" />
                       <button
                         onClick={() => handleRemovePhoto(selectedDamage.id, i)}
                         className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white"

@@ -13,10 +13,36 @@ from ..config import settings
 
 router = APIRouter()
 
+THUMB_MAX_DIM = 400
+THUMB_QUALITY = 68
+
+
+def _thumb_path(abs_file: str) -> str:
+    base, _ext = os.path.splitext(abs_file)
+    return f"{base}_thumb.jpg"
+
+
+def _ensure_thumbnail(abs_file: str) -> Optional[str]:
+    """Generate (once) and cache a small JPEG thumbnail next to the original. Returns
+    the thumbnail path, or None if generation fails (caller should fall back to the original)."""
+    thumb_file = _thumb_path(abs_file)
+    if os.path.isfile(thumb_file):
+        return thumb_file
+    try:
+        from PIL import Image
+        with Image.open(abs_file) as img:
+            img = img.convert("RGB")
+            img.thumbnail((THUMB_MAX_DIM, THUMB_MAX_DIM))
+            img.save(thumb_file, "JPEG", quality=THUMB_QUALITY)
+        return thumb_file
+    except Exception:
+        return None
+
 
 @router.get("/{path:path}")
 def serve_upload(
     path: str,
+    thumb: bool = Query(False),
     share_token: Optional[str] = Query(None, alias="share_token"),
     current_user: Optional[User] = Depends(get_current_user_download_or_none),
     db: Session = Depends(get_db),
@@ -42,4 +68,11 @@ def serve_upload(
         raise HTTPException(status_code=403, detail="Access denied")
     if not os.path.isfile(abs_file):
         raise HTTPException(status_code=404, detail="File not found")
-    return FileResponse(abs_file)
+
+    serve_path = abs_file
+    if thumb:
+        thumb_file = _ensure_thumbnail(abs_file)
+        if thumb_file:
+            serve_path = thumb_file
+
+    return FileResponse(serve_path, headers={"Cache-Control": "private, max-age=86400"})
