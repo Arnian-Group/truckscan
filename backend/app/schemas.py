@@ -264,6 +264,7 @@ class VehicleInspectionListItem(BaseModel):
     make: Optional[str]
     model: Optional[str]
     color: Optional[str]
+    vin: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime]
 
