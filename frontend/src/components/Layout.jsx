@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { logout, getUser, isAdmin, canTrailers, canVehicles } from '../lib/auth'
-import { Truck, List, ClipboardList, Users, LogOut, Car, LayoutDashboard, Link2, CloudOff } from 'lucide-react'
-import { subscribe as subscribePending } from '../lib/offlineQueue'
+import { Truck, List, ClipboardList, Users, LogOut, Car, LayoutDashboard, Link2, CloudOff, AlertTriangle } from 'lucide-react'
+import { subscribe as subscribeSyncStatus } from '../lib/offlineQueue'
 
 export default function Layout({ children, title, back }) {
   const navigate = useNavigate()
@@ -10,9 +10,9 @@ export default function Layout({ children, title, back }) {
   const user = getUser()
   const showVehicles = canVehicles()
   const showTrailers = canTrailers()
-  const [pendingCount, setPendingCount] = useState(0)
+  const [syncStatus, setSyncStatus] = useState({ pending: 0, failed: 0 })
 
-  useEffect(() => subscribePending(setPendingCount), [])
+  useEffect(() => subscribeSyncStatus(setSyncStatus), [])
 
   function handleLogout() {
     logout()
@@ -40,13 +40,22 @@ export default function Layout({ children, title, back }) {
           {title || 'TruckScan'}
         </Link>
         <div className="flex items-center gap-1">
-          {pendingCount > 0 && (
+          {syncStatus.failed > 0 && (
+            <div
+              className="flex items-center gap-1 px-2 py-1 mr-1 text-red-400 bg-red-400/10 border border-red-400/30 text-xs font-mono"
+              title={`${syncStatus.failed} cambio${syncStatus.failed === 1 ? '' : 's'} no se pudo${syncStatus.failed === 1 ? '' : 'ieron'} sincronizar — el servidor lo rechazó, vuelve a esa pantalla y reinténtalo`}
+            >
+              <AlertTriangle size={14} />
+              {syncStatus.failed}
+            </div>
+          )}
+          {syncStatus.pending > 0 && (
             <div
               className="flex items-center gap-1 px-2 py-1 mr-1 text-[#F5A623] bg-[#F5A62318] border border-[#F5A62330] text-xs font-mono"
-              title={`${pendingCount} cambio${pendingCount === 1 ? '' : 's'} pendiente${pendingCount === 1 ? '' : 's'} de sincronizar`}
+              title={`${syncStatus.pending} cambio${syncStatus.pending === 1 ? '' : 's'} pendiente${syncStatus.pending === 1 ? '' : 's'} de sincronizar`}
             >
               <CloudOff size={14} />
-              {pendingCount}
+              {syncStatus.pending}
             </div>
           )}
           <span className="text-xs text-white/40 font-mono hidden sm:block truncate max-w-[120px]">{user?.email}</span>

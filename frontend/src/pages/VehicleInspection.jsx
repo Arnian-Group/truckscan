@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { Loader, CheckCircle, Plus, FileText, Printer, Download, Users, X } from 'lucide-react'
+import { Loader, CheckCircle, Plus, FileText, Printer, Download, Users, X, Pencil } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import DamageSheet from '../components/DamageSheet'
@@ -42,6 +42,9 @@ export default function VehicleInspection() {
   const [notasFinales, setNotasFinales] = useState('')
   const [selectedDamage, setSelectedDamage] = useState(null)
   const [editorsModal, setEditorsModal] = useState(false)
+  // Reused across manual retries of the same attempt — see VehicleNew.jsx for why.
+  const damageKeyRef = useRef(null)
+  const completeKeyRef = useRef(null)
 
   async function load() {
     try {
@@ -86,6 +89,7 @@ export default function VehicleInspection() {
 
   async function handleSaveDamage({ damage_type, description, photos }) {
     setSavingDamage(true)
+    if (!damageKeyRef.current) damageKeyRef.current = newIdempotencyKey()
     try {
       const formData = new FormData()
       formData.append('view', activeView)
@@ -96,8 +100,9 @@ export default function VehicleInspection() {
       for (const photo of photos) formData.append('photos', photo)
 
       const res = await api.post(`/vehicles/${id}/damages`, formData, {
-        headers: { 'Idempotency-Key': newIdempotencyKey() },
+        headers: { 'Idempotency-Key': damageKeyRef.current },
       })
+      damageKeyRef.current = null
       const dmg = isQueuedResponse(res)
         ? {
             id: `local-${crypto.randomUUID()}`,
@@ -158,10 +163,12 @@ export default function VehicleInspection() {
 
   async function handleComplete() {
     setCompleting(true)
+    if (!completeKeyRef.current) completeKeyRef.current = newIdempotencyKey()
     try {
       await api.post(`/vehicles/${id}/complete`, { notas_finales: notasFinales || null }, {
-        headers: { 'Idempotency-Key': newIdempotencyKey() },
+        headers: { 'Idempotency-Key': completeKeyRef.current },
       })
+      completeKeyRef.current = null
       navigate(`/vehicles/${id}`)
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al completar')
@@ -222,6 +229,19 @@ export default function VehicleInspection() {
             >
               <Download size={13} />
               Descargar
+            </button>
+          </div>
+        )}
+
+        {/* Editar datos del vehículo */}
+        {canEditDoc(insp) && (
+          <div className="flex items-center bg-[#0d1520] border-b border-white/5 flex-shrink-0">
+            <button
+              onClick={() => navigate(`/vehicles/${id}/intake`)}
+              className="flex items-center gap-2 px-3 py-2.5 text-xs font-mono text-white/50 hover:text-white transition-colors min-h-[40px] w-full"
+            >
+              <Pencil size={14} className="text-[#F5A623] shrink-0" />
+              Editar datos del vehículo
             </button>
           </div>
         )}
@@ -328,7 +348,7 @@ export default function VehicleInspection() {
           <DamageSheet
             key="new-damage"
             onSave={handleSaveDamage}
-            onClose={() => setPendingCoords(null)}
+            onClose={() => { damageKeyRef.current = null; setPendingCoords(null) }}
             loading={savingDamage}
           />
         )}

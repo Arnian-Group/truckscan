@@ -217,6 +217,8 @@ export default function MercanciaIntake() {
   const [fotos, setFotos] = useState([])
   const [editorsModal, setEditorsModal] = useState(false)
   const fileRef = useRef(null)
+  // Reused across manual retries of the same submission — see VehicleNew.jsx for why.
+  const submitKeyRef = useRef(null)
 
   const [form, setForm] = useState({
     nombre_recibe: '',
@@ -286,6 +288,7 @@ export default function MercanciaIntake() {
 
   async function handleSubmit({ firmaEntrega, nombreEntrega, rolEntrega, firmaRecibe, nombreRecibe }) {
     setSubmitting(true)
+    if (!submitKeyRef.current) submitKeyRef.current = newIdempotencyKey()
     try {
       const fd = new FormData()
       fd.append('nombre_recibe', nombreRecibe || form.nombre_recibe)
@@ -302,8 +305,9 @@ export default function MercanciaIntake() {
       for (const f of fotos) fd.append('fotos', f)
 
       await api.post(`/vehicles/${id}/mercancias-save`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data', 'Idempotency-Key': newIdempotencyKey() },
+        headers: { 'Content-Type': 'multipart/form-data', 'Idempotency-Key': submitKeyRef.current },
       })
+      submitKeyRef.current = null
       navigate(`/vehicles/${id}`)
     } catch (err) {
       setError(err.response?.data?.detail || 'Error al guardar')

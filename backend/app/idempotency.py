@@ -4,11 +4,11 @@ from fastapi.encoders import jsonable_encoder
 from .models import IdempotencyKey
 
 
-def get_cached(db: Session, key: Optional[str]) -> Optional[Tuple[int, Any]]:
+def get_cached(db: Session, key: Optional[str], user_id) -> Optional[Tuple[int, Any]]:
     if not key:
         return None
     row = db.query(IdempotencyKey).filter(IdempotencyKey.key == key).first()
-    if not row:
+    if not row or str(row.user_id) != str(user_id):
         return None
     return row.response_status, row.response_body
 

@@ -836,7 +836,7 @@ def create_inspection(
     current_user: User = Depends(require_vehicle_agent),
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
-    cached = get_cached(db, idempotency_key)
+    cached = get_cached(db, idempotency_key, current_user.id)
     if cached:
         status, payload = cached
         return JSONResponse(status_code=status, content=payload)
@@ -1061,7 +1061,7 @@ def sign_inspection(
     current_user: User = Depends(require_vehicle_agent),
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
-    cached = get_cached(db, idempotency_key)
+    cached = get_cached(db, idempotency_key, current_user.id)
     if cached:
         status, payload = cached
         return JSONResponse(status_code=status, content=payload)
@@ -1147,7 +1147,7 @@ async def add_damage(
     current_user: User = Depends(require_vehicle_agent),
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
-    cached = get_cached(db, idempotency_key)
+    cached = get_cached(db, idempotency_key, current_user.id)
     if cached:
         status, payload = cached
         return JSONResponse(status_code=status, content=payload)
@@ -1266,7 +1266,7 @@ def complete_inspection(
     current_user: User = Depends(require_vehicle_agent),
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
-    cached = get_cached(db, idempotency_key)
+    cached = get_cached(db, idempotency_key, current_user.id)
     if cached:
         status, payload = cached
         return JSONResponse(status_code=status, content=payload)
@@ -1361,7 +1361,7 @@ async def save_mercancias(
     current_user: User = Depends(require_vehicle_agent),
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
-    cached = get_cached(db, idempotency_key)
+    cached = get_cached(db, idempotency_key, current_user.id)
     if cached:
         status, payload = cached
         return JSONResponse(status_code=status, content=payload)

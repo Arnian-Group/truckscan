@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { X, UserPlus, Trash2, Users } from 'lucide-react'
-import api from '../lib/api'
+import api, { isQueuedResponse } from '../lib/api'
 
 export default function EditorsModal({ module, docId, onClose, onChange }) {
   const [candidates, setCandidates] = useState([])
@@ -30,8 +30,11 @@ export default function EditorsModal({ module, docId, onClose, onChange }) {
   async function addEditor(userId) {
     setAdding(userId)
     try {
-      const { data } = await api.post(`/${module}/${docId}/editors`, { user_id: userId })
-      setEditors(prev => [...prev, data])
+      const res = await api.post(`/${module}/${docId}/editors`, { user_id: userId })
+      const editor = isQueuedResponse(res)
+        ? { id: `local-${userId}`, user_id: userId, user: candidates.find(c => c.id === userId) || null }
+        : res.data
+      setEditors(prev => [...prev, editor])
       onChange?.()
     } catch (e) {
       alert(e.response?.data?.detail || 'Error al agregar editor')

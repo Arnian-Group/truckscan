@@ -23,10 +23,17 @@ const vehiclesQueue = new Queue('vehicles-write-queue', {
     let entry
     while ((entry = await queue.shiftRequest())) {
       try {
-        await fetch(entry.request.clone())
+        const response = await fetch(entry.request.clone())
         const clients = await self.clients.matchAll()
+        // A resolved fetch isn't necessarily a success — the server can still reject
+        // the replayed request (e.g. a real validation error). Only clear it from the
+        // UI as "synced" when it actually succeeded; otherwise tell the page it failed
+        // instead of silently dropping it.
+        const message = response.ok
+          ? { type: 'bg-sync-replayed', url: entry.request.url }
+          : { type: 'bg-sync-failed', url: entry.request.url, status: response.status }
         for (const client of clients) {
-          client.postMessage({ type: 'bg-sync-replayed', url: entry.request.url })
+          client.postMessage(message)
         }
       } catch (error) {
         await queue.unshiftRequest(entry)

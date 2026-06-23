@@ -506,7 +506,8 @@ export default function VehicleDetail() {
               <ExternalLink size={14} className="text-white/30" />
             </button>
           )}
-          {!isMercancias && !insp.is_deleted && insp.status !== 'completed' && canEdit && (
+          {!isMercancias && !insp.is_deleted && canEdit &&
+            (insp.status === 'intake_complete' || insp.status === 'in_inspection') && (
             <button
               onClick={() => navigate(`/vehicles/${id}/intake`)}
               className="w-full flex items-center gap-3 py-3.5 px-4 border border-white/10 hover:border-[#F5A623]/40 transition-colors"

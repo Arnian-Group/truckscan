@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import api from '../lib/api'
@@ -19,13 +19,19 @@ const TYPES = [
 export default function VehicleNew() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(null)
+  // Reused across manual retries of the SAME type so a slow request that actually
+  // reached the server (but timed out before the response arrived) can't create a
+  // second inspection when the user taps again. Cleared once that type succeeds.
+  const retryKeys = useRef({})
 
   async function handleSelect(type_id) {
     setLoading(type_id)
+    if (!retryKeys.current[type_id]) retryKeys.current[type_id] = newIdempotencyKey()
     try {
       const { data } = await api.post('/vehicles', { vehicle_type: type_id }, {
-        headers: { 'Idempotency-Key': newIdempotencyKey() },
+        headers: { 'Idempotency-Key': retryKeys.current[type_id] },
       })
+      delete retryKeys.current[type_id]
       if (type_id === 'mercancias') {
         navigate(`/vehicles/${data.id}/mercancias`)
       } else {

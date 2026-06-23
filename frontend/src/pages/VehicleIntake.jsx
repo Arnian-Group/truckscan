@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Loader, CheckSquare, Square, Trash2, X, ArrowRight, ChevronDown, ChevronUp, Hash, Users } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -312,6 +312,8 @@ export default function VehicleIntake() {
   const [nombreError, setNombreError] = useState(false)
   const [openSection, setOpenSection] = useState('cliente')
   const [editorsModal, setEditorsModal] = useState(false)
+  // Reused across manual retries of the same sign attempt — see VehicleNew.jsx for why.
+  const signKeyRef = useRef(null)
 
   const [form, setForm] = useState({
     fecha: new Date().toISOString().split('T')[0],
@@ -409,6 +411,7 @@ export default function VehicleIntake() {
 
   async function handleSign({ firmaOrigen, nombreOrigen, rolOrigen, fechaOrigen, firmaDestino, nombreDestino }) {
     setSigning(true)
+    if (!signKeyRef.current) signKeyRef.current = newIdempotencyKey()
     try {
       await api.post(`/vehicles/${id}/sign`, {
         firma_origen: firmaOrigen,
@@ -419,8 +422,9 @@ export default function VehicleIntake() {
         nombre_firma_destino: firmaDestino ? (nombreDestino || null) : undefined,
         fecha_firma_destino: firmaDestino ? (form.fecha || null) : undefined,
       }, {
-        headers: { 'Idempotency-Key': newIdempotencyKey() },
+        headers: { 'Idempotency-Key': signKeyRef.current },
       })
+      signKeyRef.current = null
       navigate(`/vehicles/${id}/inspection`, { state: { justSigned: true } })
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al firmar')
