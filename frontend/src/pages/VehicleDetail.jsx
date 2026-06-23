@@ -6,7 +6,7 @@ import Layout from '../components/Layout'
 import ShareModal from '../components/ShareModal'
 import EditorsModal from '../components/EditorsModal'
 import VehicleHistory from '../components/VehicleHistory'
-import api from '../lib/api'
+import api, { isQueuedResponse } from '../lib/api'
 import { isAdmin, canEditDoc, canManageEditors } from '../lib/auth'
 import { mediaUrl, thumbUrl } from '../lib/mediaUrl'
 
@@ -175,8 +175,9 @@ export default function VehicleDetail() {
   async function handleSaveChecklist() {
     setSavingChecklist(true)
     try {
-      const { data } = await api.patch(`/vehicles/${id}/checklist`, { checklist })
-      setInsp(data)
+      const res = await api.patch(`/vehicles/${id}/checklist`, { checklist })
+      if (!isQueuedResponse(res)) setInsp(res.data)
+      else setInsp(prev => ({ ...prev, checklist }))
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al guardar')
     } finally {

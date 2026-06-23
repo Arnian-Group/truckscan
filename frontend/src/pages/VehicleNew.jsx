@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Layout from '../components/Layout'
 import api from '../lib/api'
+import { newIdempotencyKey } from '../lib/idempotency'
 
 const TYPES = [
   { id: 'sedan',      label: 'Sedan / Auto',    desc: '4 puertas',       icon: '🚗' },
@@ -22,14 +23,17 @@ export default function VehicleNew() {
   async function handleSelect(type_id) {
     setLoading(type_id)
     try {
-      const { data } = await api.post('/vehicles', { vehicle_type: type_id })
+      const { data } = await api.post('/vehicles', { vehicle_type: type_id }, {
+        headers: { 'Idempotency-Key': newIdempotencyKey() },
+      })
       if (type_id === 'mercancias') {
         navigate(`/vehicles/${data.id}/mercancias`)
       } else {
         navigate(`/vehicles/${data.id}/intake`)
       }
     } catch (err) {
-      alert(err.response?.data?.detail || 'Error al crear inspección')
+      const detail = err.response?.data?.detail
+      alert(detail || 'Sin conexión: no se pudo crear el recibo. Intenta de nuevo cuando tengas señal.')
       setLoading(null)
     }
   }

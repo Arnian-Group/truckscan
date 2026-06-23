@@ -1,13 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { Loader, CheckCircle, Plus, FileText, Printer, Download, Users, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import DamageSheet from '../components/DamageSheet'
 import EditorsModal from '../components/EditorsModal'
-import api from '../lib/api'
+import api, { isQueuedResponse } from '../lib/api'
+import { newIdempotencyKey } from '../lib/idempotency'
 import { canEditDoc, canManageEditors } from '../lib/auth'
 import { thumbUrl } from '../lib/mediaUrl'
+
+function photoSrc(p) {
+  return p.startsWith('blob:') ? p : thumbUrl(p)
+}
 
 const DAMAGE_TYPE_LABELS = {
   condition: 'General', scratched: 'Rallado', dented: 'Abollado',
@@ -26,6 +31,7 @@ const VIEWS = [
 export default function VehicleInspection() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const [insp, setInsp] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeView, setActiveView] = useState('front')
@@ -44,13 +50,27 @@ export default function VehicleInspection() {
         navigate(`/vehicles/${id}`, { replace: true })
         return
       }
-      setInsp(data)
-      if (data.status === 'completed') navigate(`/vehicles/${id}`, { replace: true })
-      if (data.status === 'intake') navigate(`/vehicles/${id}/intake`, { replace: true })
-      if (data.status === 'intake_complete') {
-        const { data: d2 } = await api.patch(`/vehicles/${id}/start-inspection`)
-        setInsp(d2)
+      // If we just signed offline, the cached/queued status may still read "intake"
+      // until the sign request syncs — trust the local action instead of bouncing back.
+      const justSigned = location.state?.justSigned
+      if (data.status === 'completed') {
+        navigate(`/vehicles/${id}`, { replace: true })
+        return
       }
+      if (data.status === 'intake' && !justSigned) {
+        navigate(`/vehicles/${id}/intake`, { replace: true })
+        return
+      }
+      let current = data
+      if (data.status === 'intake' || data.status === 'intake_complete') {
+        try {
+          const res = await api.patch(`/vehicles/${id}/start-inspection`)
+          current = isQueuedResponse(res) ? { ...data, status: 'in_inspection' } : res.data
+        } catch {
+          current = { ...data, status: 'in_inspection' }
+        }
+      }
+      setInsp(current)
     } catch (err) {
       console.error(err)
     } finally {
@@ -75,7 +95,22 @@ export default function VehicleInspection() {
       if (description) formData.append('description', description)
       for (const photo of photos) formData.append('photos', photo)
 
-      const { data: dmg } = await api.post(`/vehicles/${id}/damages`, formData)
+      const res = await api.post(`/vehicles/${id}/damages`, formData, {
+        headers: { 'Idempotency-Key': newIdempotencyKey() },
+      })
+      const dmg = isQueuedResponse(res)
+        ? {
+            id: `local-${crypto.randomUUID()}`,
+            view: activeView,
+            x_pct: pendingCoords.x_pct,
+            y_pct: pendingCoords.y_pct,
+            damage_type,
+            description: description || null,
+            photos: photos.map(p => URL.createObjectURL(p)),
+            created_at: new Date().toISOString(),
+            _pending: true,
+          }
+        : res.data
       setInsp(prev => ({ ...prev, damages: [...(prev.damages || []), dmg] }))
       setPendingCoords(null)
     } catch (err) {
@@ -86,6 +121,12 @@ export default function VehicleInspection() {
   }
 
   async function handleDeleteDamage(dmgId) {
+    // Pending damages added offline have no server-side counterpart yet — drop locally.
+    if (dmgId.startsWith('local-')) {
+      setInsp(prev => ({ ...prev, damages: prev.damages.filter(d => d.id !== dmgId) }))
+      setSelectedDamage(null)
+      return
+    }
     try {
       await api.delete(`/vehicles/${id}/damages/${dmgId}`)
       setInsp(prev => ({ ...prev, damages: prev.damages.filter(d => d.id !== dmgId) }))
@@ -99,10 +140,17 @@ export default function VehicleInspection() {
     const dmg = insp.damages.find(d => d.id === dmgId)
     if (!dmg) return
     const newPhotos = dmg.photos.filter((_, i) => i !== photoIdx)
+    if (dmgId.startsWith('local-')) {
+      const updated = { ...dmg, photos: newPhotos }
+      setInsp(prev => ({ ...prev, damages: prev.damages.map(d => d.id === dmgId ? updated : d) }))
+      setSelectedDamage(updated)
+      return
+    }
     try {
-      const { data } = await api.patch(`/vehicles/${id}/damages/${dmgId}`, { photos: newPhotos })
-      setInsp(prev => ({ ...prev, damages: prev.damages.map(d => d.id === dmgId ? data : d) }))
-      setSelectedDamage(data)
+      const res = await api.patch(`/vehicles/${id}/damages/${dmgId}`, { photos: newPhotos })
+      const updated = isQueuedResponse(res) ? { ...dmg, photos: newPhotos } : res.data
+      setInsp(prev => ({ ...prev, damages: prev.damages.map(d => d.id === dmgId ? updated : d) }))
+      setSelectedDamage(updated)
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al eliminar foto')
     }
@@ -111,7 +159,9 @@ export default function VehicleInspection() {
   async function handleComplete() {
     setCompleting(true)
     try {
-      await api.post(`/vehicles/${id}/complete`, { notas_finales: notasFinales || null })
+      await api.post(`/vehicles/${id}/complete`, { notas_finales: notasFinales || null }, {
+        headers: { 'Idempotency-Key': newIdempotencyKey() },
+      })
       navigate(`/vehicles/${id}`)
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al completar')
@@ -310,7 +360,7 @@ export default function VehicleInspection() {
                 <div className="flex flex-wrap gap-2 mb-4">
                   {selectedDamage.photos.map((p, i) => (
                     <div key={i} className="relative">
-                      <img src={thumbUrl(p)} loading="lazy" alt="" className="w-20 h-20 object-cover border border-white/10" />
+                      <img src={photoSrc(p)} loading="lazy" alt="" className="w-20 h-20 object-cover border border-white/10" />
                       <button
                         onClick={() => handleRemovePhoto(selectedDamage.id, i)}
                         className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white"

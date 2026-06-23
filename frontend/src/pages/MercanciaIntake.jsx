@@ -6,6 +6,7 @@ import Layout from '../components/Layout'
 import SignatureCanvas from '../components/SignatureCanvas'
 import EditorsModal from '../components/EditorsModal'
 import api from '../lib/api'
+import { newIdempotencyKey } from '../lib/idempotency'
 import { canEditDoc, canManageEditors } from '../lib/auth'
 import { compressImage } from '../lib/compressImage'
 import { mediaUrl } from '../lib/mediaUrl'
@@ -301,7 +302,7 @@ export default function MercanciaIntake() {
       for (const f of fotos) fd.append('fotos', f)
 
       await api.post(`/vehicles/${id}/mercancias-save`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: { 'Content-Type': 'multipart/form-data', 'Idempotency-Key': newIdempotencyKey() },
       })
       navigate(`/vehicles/${id}`)
     } catch (err) {

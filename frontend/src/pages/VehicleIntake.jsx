@@ -8,6 +8,7 @@ import EditorsModal from '../components/EditorsModal'
 import api from '../lib/api'
 import { isAdmin, canEditDoc, canManageEditors } from '../lib/auth'
 import { CITIES } from '../lib/cities'
+import { newIdempotencyKey } from '../lib/idempotency'
 
 const FUEL_OPTIONS = ['E', '1/4', '1/2', '3/4', 'F']
 const CHECKLIST_ITEMS = [
@@ -409,8 +410,10 @@ export default function VehicleIntake() {
         firma_destino: firmaDestino || undefined,
         nombre_firma_destino: firmaDestino ? (nombreDestino || null) : undefined,
         fecha_firma_destino: firmaDestino ? (form.fecha || null) : undefined,
+      }, {
+        headers: { 'Idempotency-Key': newIdempotencyKey() },
       })
-      navigate(`/vehicles/${id}/inspection`)
+      navigate(`/vehicles/${id}/inspection`, { state: { justSigned: true } })
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al firmar')
       setSigning(false)

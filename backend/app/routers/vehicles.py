@@ -7,8 +7,8 @@ from datetime import date, datetime
 from io import BytesIO
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request, Query
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Header, Request, Query
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 
@@ -26,6 +26,7 @@ from ..schemas import (
     EditorCreate, EditorOut, UserOut, VehicleHistoryEntryOut,
 )
 from ..audit import log_action
+from ..idempotency import get_cached, save_cached
 from ..permissions import assert_can_edit_inspection, assert_can_manage_inspection_editors
 from ..config import settings
 
@@ -833,7 +834,13 @@ def create_inspection(
     body: VehicleIntakeCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vehicle_agent),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
+    cached = get_cached(db, idempotency_key)
+    if cached:
+        status, payload = cached
+        return JSONResponse(status_code=status, content=payload)
+
     from datetime import date as date_type
     ref_date = body.fecha or date_type.today()
     year_month = ref_date.strftime("%Y%m")
@@ -876,7 +883,10 @@ def create_inspection(
     db.commit()
     log_action(db, current_user.id, "vehicle_inspection_created", "vehicle_inspection",
                str(insp.id), {"vehicle_type": body.vehicle_type.value})
-    return _get_inspection(db, insp.id)
+    result = _get_inspection(db, insp.id)
+    save_cached(db, idempotency_key, current_user.id, "create_inspection", 201,
+                VehicleInspectionOut.model_validate(result))
+    return result
 
 
 @router.get("/editor-candidates", response_model=List[UserOut])
@@ -1049,7 +1059,13 @@ def sign_inspection(
     body: SignBody,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vehicle_agent),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
+    cached = get_cached(db, idempotency_key)
+    if cached:
+        status, payload = cached
+        return JSONResponse(status_code=status, content=payload)
+
     insp = _get_inspection(db, inspection_id)
     assert_can_edit_inspection(db, current_user, insp)
     if insp.status == InspectionStatus.completed:
@@ -1095,6 +1111,8 @@ def sign_inspection(
     db.refresh(insp)
 
     log_action(db, current_user.id, "vehicle_signed", "vehicle_inspection", str(insp.id))
+    save_cached(db, idempotency_key, current_user.id, "sign_inspection", 200,
+                VehicleInspectionOut.model_validate(insp))
     return insp
 
 
@@ -1127,7 +1145,13 @@ async def add_damage(
     photos: List[UploadFile] = File(default=[]),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vehicle_agent),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
+    cached = get_cached(db, idempotency_key)
+    if cached:
+        status, payload = cached
+        return JSONResponse(status_code=status, content=payload)
+
     insp = _get_inspection(db, inspection_id)
     assert_can_edit_inspection(db, current_user, insp)
     if insp.status == InspectionStatus.completed:
@@ -1163,6 +1187,8 @@ async def add_damage(
     db.refresh(damage)
     log_action(db, current_user.id, "damage_added", "vehicle_damage", str(damage_id),
                {"inspection_id": str(inspection_id), "view": view, "type": damage_type})
+    save_cached(db, idempotency_key, current_user.id, "add_damage", 201,
+                VehicleDamageOut.model_validate(damage))
     return damage
 
 
@@ -1238,7 +1264,13 @@ def complete_inspection(
     body: CompleteBody = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vehicle_agent),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
+    cached = get_cached(db, idempotency_key)
+    if cached:
+        status, payload = cached
+        return JSONResponse(status_code=status, content=payload)
+
     insp = _get_inspection(db, inspection_id)
     assert_can_edit_inspection(db, current_user, insp)
     if insp.status == InspectionStatus.completed:
@@ -1258,6 +1290,8 @@ def complete_inspection(
     db.refresh(insp)
 
     log_action(db, current_user.id, "vehicle_inspection_completed", "vehicle_inspection", str(insp.id))
+    save_cached(db, idempotency_key, current_user.id, "complete_inspection", 200,
+                VehicleInspectionOut.model_validate(insp))
     return insp
 
 
@@ -1325,7 +1359,13 @@ async def save_mercancias(
     fotos: List[UploadFile] = File(default=[]),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_vehicle_agent),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
+    cached = get_cached(db, idempotency_key)
+    if cached:
+        status, payload = cached
+        return JSONResponse(status_code=status, content=payload)
+
     insp = _get_inspection(db, inspection_id)
     assert_can_edit_inspection(db, current_user, insp)
     if insp.status == InspectionStatus.completed:
@@ -1369,7 +1409,10 @@ async def save_mercancias(
     db.refresh(insp)
 
     log_action(db, current_user.id, "mercancias_saved", "vehicle_inspection", str(insp.id))
-    return _get_inspection(db, insp.id)
+    result = _get_inspection(db, insp.id)
+    save_cached(db, idempotency_key, current_user.id, "save_mercancias", 200,
+                VehicleInspectionOut.model_validate(result))
+    return result
 
 
 @router.get("/{inspection_id}/mercancias-pdf")

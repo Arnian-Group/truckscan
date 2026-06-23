@@ -224,6 +224,17 @@ class VehicleDamage(Base):
     creator = relationship("User", foreign_keys=[created_by])
 
 
+class IdempotencyKey(Base):
+    __tablename__ = "idempotency_keys"
+
+    key = Column(String(255), primary_key=True)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    endpoint = Column(String(255), nullable=False)
+    response_status = Column(Integer, nullable=False)
+    response_body = Column(JSON, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
 class VehicleInspectionHistory(Base):
     __tablename__ = "vehicle_inspection_history"
 
