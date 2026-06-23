@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import SignatureCanvas from '../components/SignatureCanvas'
 import EditorsModal from '../components/EditorsModal'
-import api from '../lib/api'
+import api, { isQueuedResponse } from '../lib/api'
 import { isAdmin, canEditDoc, canManageEditors } from '../lib/auth'
 import { CITIES } from '../lib/cities'
 import { newIdempotencyKey } from '../lib/idempotency'
@@ -304,6 +304,7 @@ export default function VehicleIntake() {
   const [insp, setInsp] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [savedNotice, setSavedNotice] = useState(false)
   const [signing, setSigning] = useState(false)
   const [showReview, setShowReview] = useState(false)
   const [archiving, setArchiving] = useState(false)
@@ -385,13 +386,20 @@ export default function VehicleIntake() {
     }
     setSaving(true)
     try {
-      await api.patch(`/vehicles/${id}/intake`, {
+      const res = await api.patch(`/vehicles/${id}/intake`, {
         ...form,
         year: form.year ? parseInt(form.year) : null,
         odometer: form.odometer ? parseInt(form.odometer) : null,
         vin: form.vin || null,
       })
-      setShowReview(true)
+      if (insp?.firma_origen) {
+        // Already signed — just save the edit, no need to go through the sign review again.
+        if (!isQueuedResponse(res)) setInsp(res.data)
+        setSavedNotice(true)
+        setTimeout(() => setSavedNotice(false), 2500)
+      } else {
+        setShowReview(true)
+      }
     } catch (err) {
       alert(err.response?.data?.detail || 'Error al guardar')
     } finally {
@@ -609,8 +617,15 @@ export default function VehicleIntake() {
           disabled={saving}
           className="w-full flex items-center justify-center gap-2 bg-[#F5A623] text-[#0f1117] font-bold py-4 min-h-[56px] hover:bg-[#e8961f] disabled:opacity-50 transition-all text-base"
         >
-          {saving ? 'Guardando...' : <><span>Guardar y Revisar</span><ArrowRight size={18} /></>}
+          {saving
+            ? 'Guardando...'
+            : insp?.firma_origen
+              ? <span>Guardar cambios</span>
+              : <><span>Guardar y Revisar</span><ArrowRight size={18} /></>}
         </button>
+        {savedNotice && (
+          <p className="text-center text-[#22C55E] text-sm font-mono">Cambios guardados ✓</p>
+        )}
 
         {isAdmin() && (
           <div className="pt-2 border-t border-white/5">

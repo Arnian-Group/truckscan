@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, FileText, Printer, Download, CheckSquare, Square, ExternalLink, Trash2, Shield, ChevronLeft, ChevronRight, X, ZoomIn, Share2, Users, Lock } from 'lucide-react'
+import { Loader, FileText, Printer, Download, CheckSquare, Square, ExternalLink, Trash2, Shield, ChevronLeft, ChevronRight, X, ZoomIn, Share2, Users, Lock, Pencil } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import ShareModal from '../components/ShareModal'
@@ -503,6 +503,16 @@ export default function VehicleDetail() {
             >
               <Printer size={18} className="text-[#F5A623]" />
               <span className="flex-1 text-sm text-left">{isMercancias ? 'Imprimir Recibo de Mercancía' : 'Imprimir / Guardar Reporte Completo'}</span>
+              <ExternalLink size={14} className="text-white/30" />
+            </button>
+          )}
+          {!isMercancias && !insp.is_deleted && insp.status !== 'completed' && canEdit && (
+            <button
+              onClick={() => navigate(`/vehicles/${id}/intake`)}
+              className="w-full flex items-center gap-3 py-3.5 px-4 border border-white/10 hover:border-[#F5A623]/40 transition-colors"
+            >
+              <Pencil size={18} className="text-[#F5A623]" />
+              <span className="flex-1 text-sm text-left">Editar datos del vehículo</span>
               <ExternalLink size={14} className="text-white/30" />
             </button>
           )}
