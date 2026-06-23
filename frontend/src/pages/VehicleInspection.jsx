@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { Loader, CheckCircle, Plus, FileText, Printer, Download, Users, X, Pencil } from 'lucide-react'
+import { Loader, CheckCircle, Plus, Users, X, Pencil, Eye } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import DamageSheet from '../components/DamageSheet'
@@ -188,76 +188,38 @@ export default function VehicleInspection() {
   const totalDamages = insp?.damages?.length || 0
   const viewsWithDamages = new Set((insp?.damages || []).map(d => d.view))
 
-  function handlePDF(download = false) {
-    const token = localStorage.getItem('token')
-    const base = import.meta.env.VITE_API_URL || ''
-    const url = `${base}/vehicles/${id}/liability-pdf?token=${encodeURIComponent(token)}`
-    if (download) {
-      const slug = [insp?.nombre, insp?.placas, insp?.fecha].filter(Boolean).join('_').replace(/\s+/g, '-') || id
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `descargo_${slug}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-    } else {
-      window.open(url, '_blank', 'noopener')
-    }
-  }
-
   return (
     <Layout title={`${insp?.make || ''} ${insp?.model || ''} — Inspección`} back="/vehicles">
       <div className="flex flex-col h-[calc(100vh-112px)]">
 
-        {/* PDF del Descargo */}
-        {insp?.liability_pdf_path && (
-          <div className="flex items-center bg-[#0d1520] border-b border-[#F5A623]/20 flex-shrink-0">
-            <div className="flex items-center gap-2 px-3 py-2 flex-1 min-w-0">
-              <FileText size={14} className="text-[#F5A623] shrink-0" />
-              <span className="text-xs font-mono text-white/50 truncate">PDF Descargo</span>
-            </div>
-            <button
-              onClick={() => handlePDF(false)}
-              className="flex items-center gap-1.5 px-3 py-2.5 text-xs text-white/50 hover:text-white border-l border-white/5 transition-colors min-h-[40px]"
-            >
-              <Printer size={13} />
-              Imprimir
-            </button>
-            <button
-              onClick={() => handlePDF(true)}
-              className="flex items-center gap-1.5 px-3 py-2.5 text-xs text-[#F5A623]/70 hover:text-[#F5A623] border-l border-white/5 transition-colors min-h-[40px]"
-            >
-              <Download size={13} />
-              Descargar
-            </button>
-          </div>
-        )}
-
-        {/* Editar datos del vehículo */}
-        {canEditDoc(insp) && (
-          <div className="flex items-center bg-[#0d1520] border-b border-white/5 flex-shrink-0">
+        {/* Acciones rápidas */}
+        <div className="flex items-center bg-[#0d1520] border-b border-white/5 flex-shrink-0">
+          <button
+            onClick={() => navigate(`/vehicles/${id}`)}
+            className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-mono text-white/50 hover:text-white transition-colors min-h-[40px]"
+          >
+            <Eye size={14} className="text-[#F5A623] shrink-0" />
+            Ver detalle
+          </button>
+          {canEditDoc(insp) && (
             <button
               onClick={() => navigate(`/vehicles/${id}/intake`)}
-              className="flex items-center gap-2 px-3 py-2.5 text-xs font-mono text-white/50 hover:text-white transition-colors min-h-[40px] w-full"
+              className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-mono text-white/50 hover:text-white border-l border-white/5 transition-colors min-h-[40px]"
             >
               <Pencil size={14} className="text-[#F5A623] shrink-0" />
-              Editar datos del vehículo
+              Editar datos
             </button>
-          </div>
-        )}
-
-        {/* Editores invitados */}
-        {canManageEditors(insp) && (
-          <div className="flex items-center bg-[#0d1520] border-b border-white/5 flex-shrink-0">
+          )}
+          {canManageEditors(insp) && (
             <button
               onClick={() => setEditorsModal(true)}
-              className="flex items-center gap-2 px-3 py-2.5 text-xs font-mono text-white/50 hover:text-white transition-colors min-h-[40px] w-full"
+              className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-mono text-white/50 hover:text-white border-l border-white/5 transition-colors min-h-[40px]"
             >
               <Users size={14} className="text-[#F5A623] shrink-0" />
-              Editores invitados{insp?.editor_ids?.length > 0 ? ` (${insp.editor_ids.length})` : ''}
+              Editores{insp?.editor_ids?.length > 0 ? ` (${insp.editor_ids.length})` : ''}
             </button>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* View tabs */}
         <div className="flex bg-[#161b27] border-b border-white/10 overflow-x-auto flex-shrink-0">
