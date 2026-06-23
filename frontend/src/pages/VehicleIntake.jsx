@@ -212,39 +212,53 @@ function ReviewModal({ form, insp, onClose, onSign, signing }) {
                     </p>
                   </div>
                 ) : (
-                  <>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-mono text-white/50 uppercase tracking-wider mb-1.5">
+                        Nombre de quien entrega *
+                      </label>
+                      <input
+                        value={nombreOrigen}
+                        onChange={e => setNombreOrigen(e.target.value)}
+                        placeholder="Nombre del firmante"
+                        className="w-full bg-[#1e2535] border border-white/10 text-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#F5A623] min-h-[44px]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-mono text-white/50 uppercase tracking-wider mb-1.5">
+                        ¿Quién entrega? *
+                      </label>
+                      <div className="flex gap-2">
+                        {SIGNER_ROLES.map(r => (
+                          <button
+                            key={r.value}
+                            type="button"
+                            disabled={!nombreOrigen.trim()}
+                            onClick={() => setRolOrigen(r.value)}
+                            className={`flex-1 py-2.5 text-xs font-mono border transition-colors min-h-[44px] disabled:opacity-30 disabled:cursor-not-allowed ${
+                              rolOrigen === r.value
+                                ? 'bg-[#F5A623] text-[#0f1117] border-[#F5A623]'
+                                : 'text-white/50 border-white/10 hover:border-white/30'
+                            }`}
+                          >
+                            {r.label}
+                          </button>
+                        ))}
+                      </div>
+                      {!nombreOrigen.trim() && (
+                        <p className="text-xs font-mono text-white/30 mt-1.5">Escribe el nombre para continuar</p>
+                      )}
+                    </div>
                     <SignatureCanvas
                       label="Firma de quien entrega (Origin) *"
+                      value={firmaOrigen}
+                      locked={!!firmaOrigen}
+                      disabled={!nombreOrigen.trim() || !rolOrigen}
+                      hint="Completa nombre y rol para habilitar la firma"
                       onSave={data => { setFirmaOrigen(data); setSigError('') }}
                       onClear={() => setFirmaOrigen(null)}
                     />
-                    {firmaOrigen && (
-                      <div className="mt-2 space-y-2">
-                        <input
-                          value={nombreOrigen}
-                          onChange={e => setNombreOrigen(e.target.value)}
-                          placeholder="Nombre del firmante"
-                          className="w-full bg-[#1e2535] border border-white/10 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]"
-                        />
-                        <div className="flex gap-2">
-                          {SIGNER_ROLES.map(r => (
-                            <button
-                              key={r.value}
-                              type="button"
-                              onClick={() => setRolOrigen(r.value)}
-                              className={`flex-1 py-2 text-xs font-mono border transition-colors ${
-                                rolOrigen === r.value
-                                  ? 'bg-[#F5A623] text-[#0f1117] border-[#F5A623]'
-                                  : 'text-white/50 border-white/10 hover:border-white/30'
-                              }`}
-                            >
-                              {r.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
+                  </div>
                 )}
               </div>
               <div>
@@ -255,23 +269,28 @@ function ReviewModal({ form, insp, onClose, onSign, signing }) {
                     <p className="text-sm text-white/70 mt-1.5">{nombreDestino || 'Sin nombre'}</p>
                   </div>
                 ) : (
-                  <>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-mono text-white/50 uppercase tracking-wider mb-1.5">
+                        Nombre de quien recibe
+                      </label>
+                      <input
+                        value={nombreDestino}
+                        onChange={e => setNombreDestino(e.target.value)}
+                        placeholder="Nombre del agente"
+                        className="w-full bg-[#1e2535] border border-white/10 text-white px-3 py-2.5 text-sm focus:outline-none focus:border-[#F5A623] min-h-[44px]"
+                      />
+                    </div>
                     <SignatureCanvas
                       label="Firma del Agente (Destination) — opcional"
+                      value={firmaDestino}
+                      locked={!!firmaDestino}
+                      disabled={!nombreDestino.trim()}
+                      hint="Escribe el nombre para habilitar la firma"
                       onSave={data => setFirmaDestino(data)}
                       onClear={() => setFirmaDestino(null)}
                     />
-                    {firmaDestino && (
-                      <div className="mt-2">
-                        <input
-                          value={nombreDestino}
-                          onChange={e => setNombreDestino(e.target.value)}
-                          placeholder="Nombre del agente"
-                          className="w-full bg-[#1e2535] border border-white/10 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]"
-                        />
-                      </div>
-                    )}
-                  </>
+                  </div>
                 )}
               </div>
             </div>

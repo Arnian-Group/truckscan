@@ -154,25 +154,38 @@ function ReviewModal({ form, fotos, insp, onClose, onSubmit, submitting }) {
             <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3 pb-2 border-b border-white/5">
               Firma — Quien Entrega
             </h2>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Input value={nombreEntrega} onChange={setNombreEntrega} placeholder="Nombre de quien entrega" />
-              <div className="flex gap-2">
-                {SIGNER_ROLES.map(r => (
-                  <button
-                    key={r.value}
-                    type="button"
-                    onClick={() => setRolEntrega(r.value)}
-                    className={`flex-1 py-2 text-xs font-mono border transition-colors ${
-                      rolEntrega === r.value
-                        ? 'bg-[#F5A623] text-[#0f1117] border-[#F5A623]'
-                        : 'text-white/50 border-white/10 hover:border-white/30'
-                    }`}
-                  >
-                    {r.label}
-                  </button>
-                ))}
+              <div>
+                <div className="flex gap-2">
+                  {SIGNER_ROLES.map(r => (
+                    <button
+                      key={r.value}
+                      type="button"
+                      disabled={!nombreEntrega.trim()}
+                      onClick={() => setRolEntrega(r.value)}
+                      className={`flex-1 py-2.5 text-xs font-mono border transition-colors min-h-[44px] disabled:opacity-30 disabled:cursor-not-allowed ${
+                        rolEntrega === r.value
+                          ? 'bg-[#F5A623] text-[#0f1117] border-[#F5A623]'
+                          : 'text-white/50 border-white/10 hover:border-white/30'
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+                {!nombreEntrega.trim() && (
+                  <p className="text-xs font-mono text-white/30 mt-1.5">Escribe el nombre para continuar</p>
+                )}
               </div>
-              <SignatureCanvas onSave={setFirmaEntrega} />
+              <SignatureCanvas
+                value={firmaEntrega}
+                locked={!!firmaEntrega}
+                disabled={!nombreEntrega.trim() || !rolEntrega}
+                hint="Completa nombre y rol para habilitar la firma"
+                onSave={setFirmaEntrega}
+                onClear={() => setFirmaEntrega(null)}
+              />
             </div>
           </section>
 
@@ -180,9 +193,16 @@ function ReviewModal({ form, fotos, insp, onClose, onSubmit, submitting }) {
             <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3 pb-2 border-b border-white/5">
               Firma — Quien Recibe
             </h2>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Input value={nombreRecibe} onChange={setNombreRecibe} placeholder="Nombre de quien recibe" />
-              <SignatureCanvas onSave={setFirmaRecibe} />
+              <SignatureCanvas
+                value={firmaRecibe}
+                locked={!!firmaRecibe}
+                disabled={!nombreRecibe.trim()}
+                hint="Escribe el nombre para habilitar la firma"
+                onSave={setFirmaRecibe}
+                onClear={() => setFirmaRecibe(null)}
+              />
             </div>
           </section>
 

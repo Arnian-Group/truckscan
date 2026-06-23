@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
+import { Check, RotateCcw } from 'lucide-react'
 
-export default function SignatureCanvas({ label, onSave, onClear }) {
+export default function SignatureCanvas({ label, value, locked, disabled, hint, onSave, onClear }) {
   const canvasRef = useRef(null)
   const isDrawing = useRef(false)
   const lastPos = useRef(null)
@@ -19,6 +20,7 @@ export default function SignatureCanvas({ label, onSave, onClear }) {
   }
 
   useEffect(() => {
+    if (locked) return
     const canvas = canvasRef.current
     if (!canvas) return
     const dpr = window.devicePixelRatio || 1
@@ -33,7 +35,8 @@ export default function SignatureCanvas({ label, onSave, onClear }) {
     ctx.lineWidth = 2.5
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
-  }, [])
+    setHasSignature(false)
+  }, [locked])
 
   function getPos(e) {
     const canvas = canvasRef.current
@@ -45,12 +48,14 @@ export default function SignatureCanvas({ label, onSave, onClear }) {
   }
 
   const startDraw = useCallback((e) => {
+    if (disabled) return
     e.preventDefault()
     isDrawing.current = true
     lastPos.current = getPos(e)
-  }, [])
+  }, [disabled])
 
   const draw = useCallback((e) => {
+    if (disabled) return
     e.preventDefault()
     if (!isDrawing.current) return
     const ctx = getCtx()
@@ -62,7 +67,7 @@ export default function SignatureCanvas({ label, onSave, onClear }) {
     ctx.stroke()
     lastPos.current = pos
     setHasSignature(true)
-  }, [])
+  }, [disabled])
 
   const endDraw = useCallback(() => {
     isDrawing.current = false
@@ -84,6 +89,33 @@ export default function SignatureCanvas({ label, onSave, onClear }) {
     onSave(canvas.toDataURL('image/png'))
   }
 
+  if (locked && value) {
+    return (
+      <div>
+        {label && (
+          <label className="block text-xs font-mono text-white/50 uppercase tracking-wider mb-2">
+            {label}
+          </label>
+        )}
+        <div className="border border-[#22C55E]/40">
+          <img src={value} alt="Firma" className="w-full object-contain bg-white block" style={{ height: '150px' }} />
+        </div>
+        <div className="flex items-center justify-between mt-2">
+          <span className="flex items-center gap-1.5 text-xs font-mono text-[#22C55E]">
+            <Check size={14} /> Firma registrada
+          </span>
+          <button
+            type="button"
+            onClick={() => onClear?.()}
+            className="flex items-center gap-1.5 text-xs font-mono text-white/40 hover:text-white px-2 py-1.5 min-h-[36px]"
+          >
+            <RotateCcw size={13} /> Cambiar firma
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       {label && (
@@ -93,8 +125,8 @@ export default function SignatureCanvas({ label, onSave, onClear }) {
       )}
       <canvas
         ref={canvasRef}
-        className="w-full border border-white/20 touch-none block"
-        style={{ height: '150px', background: '#ffffff', cursor: 'crosshair' }}
+        className={`w-full border block ${disabled ? 'border-white/10 opacity-30 touch-auto' : 'border-white/20 cursor-crosshair touch-none'}`}
+        style={{ height: '150px', background: '#ffffff' }}
         onMouseDown={startDraw}
         onMouseMove={draw}
         onMouseUp={endDraw}
@@ -103,18 +135,22 @@ export default function SignatureCanvas({ label, onSave, onClear }) {
         onTouchMove={draw}
         onTouchEnd={endDraw}
       />
+      {disabled && hint && (
+        <p className="text-xs font-mono text-white/30 mt-1.5">{hint}</p>
+      )}
       <div className="flex gap-2 mt-2">
         <button
           type="button"
           onClick={clear}
-          className="flex-1 py-2.5 text-sm font-mono text-white/50 border border-white/10 hover:text-white hover:border-white/30 transition-colors min-h-[44px]"
+          disabled={disabled}
+          className="flex-1 py-2.5 text-sm font-mono text-white/50 border border-white/10 hover:text-white hover:border-white/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors min-h-[44px]"
         >
           Limpiar
         </button>
         <button
           type="button"
           onClick={save}
-          disabled={!hasSignature}
+          disabled={disabled || !hasSignature}
           className="flex-1 py-2.5 text-sm font-mono font-bold text-[#0f1117] bg-[#F5A623] hover:bg-[#e8961f] disabled:opacity-40 disabled:cursor-not-allowed transition-all min-h-[44px]"
         >
           Confirmar Firma
