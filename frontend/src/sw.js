@@ -7,12 +7,53 @@ self.skipWaiting()
 cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
 
-// Reads: previously seen vehicle data/photos stay visible offline.
+// A single vehicle's detail GET backs permission checks (editor_ids) and the
+// damages/photos shown in Detalle/Inspección — silently serving a stale cached
+// copy here (the old behavior) made devices on flaky connections show "no eres
+// editor" after access was already granted, or an empty inspection after photos
+// were already saved server-side. So this route gets its own handler below that
+// notifies the page when it falls back to cache, instead of NetworkFirst's
+// default of swapping in stale data with no signal that it happened.
+function isVehicleDetail(url) {
+  return /^\/vehicles\/[^/]+$/.test(url.pathname) && url.pathname !== '/vehicles/editor-candidates'
+}
+
+// Reads: previously seen vehicle list/photos stay visible offline.
 registerRoute(
   ({ url, request }) =>
     request.method === 'GET' &&
-    (url.pathname.startsWith('/vehicles') || url.pathname.startsWith('/uploads/')),
+    (url.pathname.startsWith('/uploads/') ||
+      (url.pathname.startsWith('/vehicles') && !isVehicleDetail(url))),
   new NetworkFirst({ cacheName: 'truckscan-vehicles-data', networkTimeoutSeconds: 8 })
+)
+
+const vehicleDetailCache = 'truckscan-vehicle-detail'
+
+async function networkFirstNotifyStale(event) {
+  const cache = await caches.open(vehicleDetailCache)
+  const networkPromise = fetch(event.request.clone())
+    .then((response) => {
+      if (response.ok) cache.put(event.request, response.clone())
+      return response
+    })
+    .catch(() => null)
+  const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 8000))
+  const response = await Promise.race([networkPromise, timeoutPromise])
+  if (response) return response
+
+  const cached = await cache.match(event.request)
+  if (!cached) return networkPromise.then((r) => r || Response.error())
+
+  const clients = await self.clients.matchAll()
+  for (const client of clients) {
+    client.postMessage({ type: 'stale-vehicle-data', url: event.request.url })
+  }
+  return cached
+}
+
+registerRoute(
+  ({ url, request }) => request.method === 'GET' && isVehicleDetail(url),
+  networkFirstNotifyStale
 )
 
 // Writes: queue + automatic retry when connectivity returns (Background Sync API,

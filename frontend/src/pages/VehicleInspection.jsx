@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
-import { Loader, CheckCircle, Plus, Users, X, Pencil, Eye } from 'lucide-react'
+import { Loader, CheckCircle, Plus, Users, X, Pencil, Eye, WifiOff } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import DamageSheet from '../components/DamageSheet'
@@ -9,6 +9,7 @@ import api, { isQueuedResponse } from '../lib/api'
 import { newIdempotencyKey } from '../lib/idempotency'
 import { canEditDoc, canManageEditors } from '../lib/auth'
 import { thumbUrl } from '../lib/mediaUrl'
+import { subscribeStaleVehicle } from '../lib/staleData'
 
 function photoSrc(p) {
   return p.startsWith('blob:') ? p : thumbUrl(p)
@@ -42,11 +43,13 @@ export default function VehicleInspection() {
   const [notasFinales, setNotasFinales] = useState('')
   const [selectedDamage, setSelectedDamage] = useState(null)
   const [editorsModal, setEditorsModal] = useState(false)
+  const [stale, setStale] = useState(false)
   // Reused across manual retries of the same attempt — see VehicleNew.jsx for why.
   const damageKeyRef = useRef(null)
   const completeKeyRef = useRef(null)
 
   async function load() {
+    setStale(false)
     try {
       const { data } = await api.get(`/vehicles/${id}`)
       if (!canEditDoc(data)) {
@@ -82,6 +85,10 @@ export default function VehicleInspection() {
   }
 
   useEffect(() => { load() }, [id])
+
+  useEffect(() => subscribeStaleVehicle((url) => {
+    if (url.endsWith(`/vehicles/${id}`)) setStale(true)
+  }), [id])
 
   const handleAddDamage = useCallback(() => {
     setPendingCoords({ x_pct: 50, y_pct: 50 })
@@ -191,6 +198,14 @@ export default function VehicleInspection() {
   return (
     <Layout title={`${insp?.make || ''} ${insp?.model || ''} — Inspección`} back="/vehicles">
       <div className="flex flex-col h-[calc(100vh-112px)]">
+
+        {stale && (
+          <div className="px-4 py-2.5 bg-[#F5A623]/10 border-b border-[#F5A623]/20 flex items-center gap-2 text-[#F5A623] text-xs font-mono flex-shrink-0">
+            <WifiOff size={14} className="shrink-0" />
+            <span className="flex-1">Sin conexión — mostrando la última versión guardada en este dispositivo, puede no estar actualizada.</span>
+            <button onClick={load} className="font-bold underline shrink-0">Reintentar</button>
+          </div>
+        )}
 
         {/* Acciones rápidas */}
         <div className="flex items-center bg-[#0d1520] border-b border-white/5 flex-shrink-0">

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, CheckSquare, Square, Trash2, X, ArrowRight, ChevronDown, ChevronUp, Hash, Users } from 'lucide-react'
+import { Loader, CheckSquare, Square, Trash2, X, ArrowRight, ChevronDown, ChevronUp, Hash, Users, WifiOff } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import SignatureCanvas from '../components/SignatureCanvas'
@@ -9,6 +9,7 @@ import api, { isQueuedResponse } from '../lib/api'
 import { isAdmin, canEditDoc, canManageEditors } from '../lib/auth'
 import { CITIES } from '../lib/cities'
 import { newIdempotencyKey } from '../lib/idempotency'
+import { subscribeStaleVehicle } from '../lib/staleData'
 
 const FUEL_OPTIONS = ['E', '1/4', '1/2', '3/4', 'F']
 const CHECKLIST_ITEMS = [
@@ -331,6 +332,7 @@ export default function VehicleIntake() {
   const [nombreError, setNombreError] = useState(false)
   const [openSection, setOpenSection] = useState('cliente')
   const [editorsModal, setEditorsModal] = useState(false)
+  const [stale, setStale] = useState(false)
   // Reused across manual retries of the same sign attempt — see VehicleNew.jsx for why.
   const signKeyRef = useRef(null)
 
@@ -351,8 +353,9 @@ export default function VehicleIntake() {
     checklist: {},
   })
 
-  useEffect(() => {
-    api.get(`/vehicles/${id}`).then(({ data }) => {
+  function load() {
+    setStale(false)
+    return api.get(`/vehicles/${id}`).then(({ data }) => {
       if (!canEditDoc(data)) {
         navigate(`/vehicles/${id}`, { replace: true })
         return
@@ -376,7 +379,13 @@ export default function VehicleIntake() {
         checklist: data.checklist || {},
       }))
     }).catch(console.error).finally(() => setLoading(false))
-  }, [id])
+  }
+
+  useEffect(() => { load() }, [id])
+
+  useEffect(() => subscribeStaleVehicle((url) => {
+    if (url.endsWith(`/vehicles/${id}`)) setStale(true)
+  }), [id])
 
   function set(field) {
     return val => {
@@ -477,6 +486,13 @@ export default function VehicleIntake() {
 
   return (
     <Layout title={`Intake — ${insp?.vehicle_type?.toUpperCase() || ''}`} back="/vehicles">
+      {stale && (
+        <div className="px-4 py-2.5 bg-[#F5A623]/10 border-b border-[#F5A623]/20 flex items-center gap-2 text-[#F5A623] text-xs font-mono">
+          <WifiOff size={14} className="shrink-0" />
+          <span className="flex-1">Sin conexión — mostrando la última versión guardada en este dispositivo, puede no estar actualizada.</span>
+          <button onClick={load} className="font-bold underline shrink-0">Reintentar</button>
+        </div>
+      )}
       <div className="px-4 py-4 pb-32 space-y-3 max-w-2xl mx-auto">
 
         {/* Folio badge */}

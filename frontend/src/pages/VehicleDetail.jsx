@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, FileText, Printer, Download, CheckSquare, Square, ExternalLink, Trash2, Shield, ChevronLeft, ChevronRight, X, ZoomIn, Share2, Users, Lock, Pencil } from 'lucide-react'
+import { Loader, FileText, Printer, Download, CheckSquare, Square, ExternalLink, Trash2, Shield, ChevronLeft, ChevronRight, X, ZoomIn, Share2, Users, Lock, Pencil, WifiOff } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import ShareModal from '../components/ShareModal'
@@ -9,6 +9,7 @@ import VehicleHistory from '../components/VehicleHistory'
 import api, { isQueuedResponse } from '../lib/api'
 import { isAdmin, canEditDoc, canManageEditors } from '../lib/auth'
 import { mediaUrl, thumbUrl } from '../lib/mediaUrl'
+import { subscribeStaleVehicle } from '../lib/staleData'
 
 const SIGNER_ROLE_LABELS = {
   transportista: 'Transportista',
@@ -144,18 +145,26 @@ export default function VehicleDetail() {
   const [lightbox, setLightbox] = useState(null)
   const [shareModal, setShareModal] = useState(false)
   const [editorsModal, setEditorsModal] = useState(false)
+  const [stale, setStale] = useState(false)
   const admin = isAdmin()
 
   const openPhoto = useCallback((photos, i) => {
     setLightbox({ photos, startIndex: i })
   }, [])
 
-  useEffect(() => {
-    api.get(`/vehicles/${id}`).then(({ data }) => {
+  function load() {
+    setStale(false)
+    return api.get(`/vehicles/${id}`).then(({ data }) => {
       setInsp(data)
       setChecklist(data.checklist || {})
     }).catch(console.error).finally(() => setLoading(false))
-  }, [id])
+  }
+
+  useEffect(() => { load() }, [id])
+
+  useEffect(() => subscribeStaleVehicle((url) => {
+    if (url.endsWith(`/vehicles/${id}`)) setStale(true)
+  }), [id])
 
   if (loading) {
     return (
@@ -207,6 +216,13 @@ export default function VehicleDetail() {
 
   return (
     <Layout title="Detalle" back="/vehicles">
+      {stale && (
+        <div className="px-4 py-2.5 bg-[#F5A623]/10 border-b border-[#F5A623]/20 flex items-center gap-2 text-[#F5A623] text-xs font-mono">
+          <WifiOff size={14} className="shrink-0" />
+          <span className="flex-1">Sin conexión — mostrando la última versión guardada en este dispositivo, puede no estar actualizada.</span>
+          <button onClick={load} className="font-bold underline shrink-0">Reintentar</button>
+        </div>
+      )}
       {insp.is_deleted && (
         <div className="px-4 py-2.5 bg-red-500/10 border-b border-red-500/20 flex items-center gap-2 text-red-400 text-xs font-mono font-bold uppercase tracking-wider">
           <span>■</span> INSPECCIÓN ARCHIVADA — solo lectura
