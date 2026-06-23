@@ -2,6 +2,7 @@ import os
 import uuid
 import base64
 import hashlib
+import json
 from datetime import date, datetime
 from io import BytesIO
 from typing import Optional, List
@@ -12,14 +13,17 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 
 from ..database import get_db
-from ..models import User, VehicleInspection, VehicleDamage, InspectionEditor, InspectionStatus, VehicleType
+from ..models import (
+    User, VehicleInspection, VehicleDamage, InspectionEditor, InspectionStatus, VehicleType,
+    VehicleInspectionHistory, AuditLog, SignerRole,
+)
 from ..auth import get_current_user, require_vehicle_agent, require_admin, get_current_user_download
 from ..schemas import (
     VehicleIntakeCreate, VehicleIntakeUpdate, SignBody,
     VehicleDamageUpdate, VehicleDamageOut,
     VehicleInspectionOut, VehicleInspectionListItem,
     PaginatedResponse, ChecklistUpdate, CompleteBody,
-    EditorCreate, EditorOut, UserOut,
+    EditorCreate, EditorOut, UserOut, VehicleHistoryEntryOut,
 )
 from ..audit import log_action
 from ..permissions import assert_can_edit_inspection, assert_can_manage_inspection_editors
@@ -33,6 +37,58 @@ ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/he
 def _sig_hash(inspection_id: uuid.UUID, nombre: Optional[str], fecha, firma_data: str) -> str:
     content = f"{inspection_id}|{nombre or ''}|{str(fecha or '')}|{firma_data}"
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+FIELD_LABELS = {
+    "fecha": "Fecha",
+    "city": "Ciudad",
+    "nombre": "Nombre",
+    "id_cliente": "ID Cliente",
+    "year": "Año",
+    "make": "Marca",
+    "model": "Modelo",
+    "color": "Color",
+    "placas": "Placas",
+    "odometer": "Kilometraje",
+    "vin": "VIN",
+    "gasolina": "Gasolina",
+    "notas": "Notas",
+    "checklist": "Checklist",
+}
+
+HISTORY_ACTION_LABELS = {
+    "vehicle_inspection_created": "Creó la inspección",
+    "vehicle_signed": "Firmó la inspección",
+    "vehicle_inspection_started": "Inició la inspección",
+    "vehicle_inspection_completed": "Completó la inspección",
+    "mercancias_saved": "Guardó la mercancía",
+    "inspection_editor_added": "Agregó un editor",
+    "inspection_editor_removed": "Quitó un editor",
+    "vehicle_inspection_deleted": "Eliminó la inspección",
+}
+
+
+def _serialize_history_value(value):
+    if value is None:
+        return None
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False, default=str)
+    return str(value)
+
+
+def _apply_and_record_changes(db: Session, insp: VehicleInspection, user_id, changes: dict) -> None:
+    for field, new_value in changes.items():
+        old_value = getattr(insp, field)
+        if old_value != new_value:
+            db.add(VehicleInspectionHistory(
+                id=uuid.uuid4(),
+                inspection_id=insp.id,
+                field=field,
+                old_value=_serialize_history_value(old_value),
+                new_value=_serialize_history_value(new_value),
+                changed_by=user_id,
+            ))
+        setattr(insp, field, new_value)
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -847,6 +903,58 @@ def get_inspection(
     return insp
 
 
+@router.get("/{inspection_id}/history", response_model=List[VehicleHistoryEntryOut])
+def get_inspection_history(
+    inspection_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vehicle_agent),
+):
+    _get_inspection_any(db, inspection_id)
+
+    field_rows = (
+        db.query(VehicleInspectionHistory)
+        .options(joinedload(VehicleInspectionHistory.user))
+        .filter(VehicleInspectionHistory.inspection_id == inspection_id)
+        .all()
+    )
+    entries = [
+        VehicleHistoryEntryOut(
+            type="field_change",
+            timestamp=row.changed_at,
+            user=row.user,
+            field=row.field,
+            field_label=FIELD_LABELS.get(row.field, row.field),
+            old_value=row.old_value,
+            new_value=row.new_value,
+        )
+        for row in field_rows
+    ]
+
+    audit_rows = (
+        db.query(AuditLog)
+        .options(joinedload(AuditLog.user))
+        .filter(
+            AuditLog.entity == "vehicle_inspection",
+            AuditLog.entity_id == str(inspection_id),
+            AuditLog.action.in_(list(HISTORY_ACTION_LABELS.keys())),
+        )
+        .all()
+    )
+    entries += [
+        VehicleHistoryEntryOut(
+            type="event",
+            timestamp=row.timestamp,
+            user=row.user,
+            action=row.action,
+            action_label=HISTORY_ACTION_LABELS.get(row.action, row.action),
+        )
+        for row in audit_rows
+    ]
+
+    entries.sort(key=lambda e: e.timestamp, reverse=True)
+    return entries
+
+
 @router.get("/{inspection_id}/editors", response_model=List[EditorOut])
 def list_inspection_editors(
     inspection_id: uuid.UUID,
@@ -929,11 +1037,9 @@ def update_intake(
     assert_can_edit_inspection(db, current_user, insp)
     if insp.status == InspectionStatus.completed:
         raise HTTPException(status_code=400, detail="La inspección ya está completada")
-    for field, value in body.model_dump(exclude_unset=True).items():
-        setattr(insp, field, value)
+    _apply_and_record_changes(db, insp, current_user.id, body.model_dump(exclude_unset=True))
     db.commit()
     db.refresh(insp)
-    log_action(db, current_user.id, "vehicle_intake_updated", "vehicle_inspection", str(insp.id))
     return insp
 
 
@@ -948,9 +1054,27 @@ def sign_inspection(
     assert_can_edit_inspection(db, current_user, insp)
     if insp.status == InspectionStatus.completed:
         raise HTTPException(status_code=400, detail="La inspección ya está completada")
+    if insp.firma_origen and (
+        body.firma_origen != insp.firma_origen
+        or body.nombre_firma_origen != insp.nombre_firma_origen
+        or body.rol_firma_origen != insp.rol_firma_origen
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="La firma y los datos de quien entrega ya fueron registrados y no se pueden modificar",
+        )
+    if body.firma_destino and insp.firma_destino and (
+        body.firma_destino != insp.firma_destino
+        or body.nombre_firma_destino != insp.nombre_firma_destino
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="La firma y los datos de quien recibe ya fueron registrados y no se pueden modificar",
+        )
 
     insp.firma_origen = body.firma_origen
     insp.nombre_firma_origen = body.nombre_firma_origen
+    insp.rol_firma_origen = body.rol_firma_origen
     insp.fecha_firma_origen = body.fecha_firma_origen
     insp.firma_hash_origen = _sig_hash(
         inspection_id, body.nombre_firma_origen, body.fecha_firma_origen, body.firma_origen
@@ -1098,12 +1222,13 @@ def update_checklist(
     assert_can_edit_inspection(db, current_user, insp)
     if insp.status.value == "completed":
         raise HTTPException(status_code=400, detail="No se puede modificar una inspección completada")
+    changes = {}
     if body.checklist is not None:
-        insp.checklist = body.checklist
+        changes["checklist"] = body.checklist
     if body.notas is not None:
-        insp.notas = body.notas
+        changes["notas"] = body.notas
+    _apply_and_record_changes(db, insp, current_user.id, changes)
     db.commit()
-    log_action(db, current_user.id, "vehicle_checklist_updated", "vehicle_inspection", str(insp.id))
     return _get_inspection(db, inspection_id)
 
 
@@ -1194,6 +1319,7 @@ async def save_mercancias(
     city: Optional[str] = Form(None),
     firma_origen: str = Form(...),
     nombre_firma_origen: Optional[str] = Form(None),
+    rol_firma_origen: Optional[SignerRole] = Form(None),
     firma_destino: Optional[str] = Form(None),
     nombre_firma_destino: Optional[str] = Form(None),
     fotos: List[UploadFile] = File(default=[]),
@@ -1227,6 +1353,7 @@ async def save_mercancias(
 
     insp.firma_origen = firma_origen
     insp.nombre_firma_origen = nombre_firma_origen
+    insp.rol_firma_origen = rol_firma_origen
     insp.firma_hash_origen = _sig_hash(inspection_id, nombre_firma_origen, insp.fecha, firma_origen)
     if firma_destino:
         insp.firma_destino = firma_destino

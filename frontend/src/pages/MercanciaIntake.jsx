@@ -78,18 +78,25 @@ function SectionCard({ title, badge, open, onToggle, children }) {
   )
 }
 
+const SIGNER_ROLES = [
+  { value: 'transportista', label: 'Transportista' },
+  { value: 'cliente_final', label: 'Cliente final' },
+]
+
 function ReviewModal({ form, fotos, insp, onClose, onSubmit, submitting }) {
   const [firmaEntrega, setFirmaEntrega] = useState(null)
   const [firmaRecibe, setFirmaRecibe] = useState(null)
   const [nombreEntrega, setNombreEntrega] = useState(form.nombre_entrega || '')
   const [nombreRecibe, setNombreRecibe] = useState(form.nombre_recibe || '')
+  const [rolEntrega, setRolEntrega] = useState('')
   const [sigError, setSigError] = useState('')
 
   function handleSubmit() {
     if (!firmaEntrega) { setSigError('Se requiere la firma de quien entrega'); return }
+    if (!rolEntrega) { setSigError('Indica si quien entrega es transportista o cliente final'); return }
     if (!firmaRecibe) { setSigError('Se requiere la firma de quien recibe'); return }
     setSigError('')
-    onSubmit({ firmaEntrega, nombreEntrega, firmaRecibe, nombreRecibe })
+    onSubmit({ firmaEntrega, nombreEntrega, rolEntrega, firmaRecibe, nombreRecibe })
   }
 
   return (
@@ -148,6 +155,22 @@ function ReviewModal({ form, fotos, insp, onClose, onSubmit, submitting }) {
             </h2>
             <div className="space-y-2">
               <Input value={nombreEntrega} onChange={setNombreEntrega} placeholder="Nombre de quien entrega" />
+              <div className="flex gap-2">
+                {SIGNER_ROLES.map(r => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => setRolEntrega(r.value)}
+                    className={`flex-1 py-2 text-xs font-mono border transition-colors ${
+                      rolEntrega === r.value
+                        ? 'bg-[#F5A623] text-[#0f1117] border-[#F5A623]'
+                        : 'text-white/50 border-white/10 hover:border-white/30'
+                    }`}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
               <SignatureCanvas onSave={setFirmaEntrega} />
             </div>
           </section>
@@ -260,7 +283,7 @@ export default function MercanciaIntake() {
     setShowReview(true)
   }
 
-  async function handleSubmit({ firmaEntrega, nombreEntrega, firmaRecibe, nombreRecibe }) {
+  async function handleSubmit({ firmaEntrega, nombreEntrega, rolEntrega, firmaRecibe, nombreRecibe }) {
     setSubmitting(true)
     try {
       const fd = new FormData()
@@ -272,6 +295,7 @@ export default function MercanciaIntake() {
       fd.append('city', form.city)
       fd.append('firma_origen', firmaEntrega)
       if (nombreEntrega) fd.append('nombre_firma_origen', nombreEntrega)
+      if (rolEntrega) fd.append('rol_firma_origen', rolEntrega)
       fd.append('firma_destino', firmaRecibe)
       if (nombreRecibe) fd.append('nombre_firma_destino', nombreRecibe)
       for (const f of fotos) fd.append('fotos', f)

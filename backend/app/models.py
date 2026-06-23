@@ -38,6 +38,11 @@ class InspectionStatus(str, enum.Enum):
     completed = "completed"
 
 
+class SignerRole(str, enum.Enum):
+    transportista = "transportista"
+    cliente_final = "cliente_final"
+
+
 class TrailerStatus(str, enum.Enum):
     open = "open"
     completed = "completed"
@@ -149,6 +154,7 @@ class VehicleInspection(Base):
 
     firma_origen = Column(Text, nullable=True)
     nombre_firma_origen = Column(String(255), nullable=True)
+    rol_firma_origen = Column(SAEnum(SignerRole), nullable=True)
     fecha_firma_origen = Column(Date, nullable=True)
     firma_hash_origen = Column(String(64), nullable=True)
 
@@ -216,6 +222,21 @@ class VehicleDamage(Base):
 
     inspection = relationship("VehicleInspection", back_populates="damages")
     creator = relationship("User", foreign_keys=[created_by])
+
+
+class VehicleInspectionHistory(Base):
+    __tablename__ = "vehicle_inspection_history"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    inspection_id = Column(UUID(as_uuid=True), ForeignKey("vehicle_inspections.id"), nullable=False, index=True)
+    field = Column(String(100), nullable=False)
+    old_value = Column(Text, nullable=True)
+    new_value = Column(Text, nullable=True)
+    changed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    changed_at = Column(DateTime(timezone=True), default=utcnow)
+
+    inspection = relationship("VehicleInspection")
+    user = relationship("User", foreign_keys=[changed_by])
 
 
 class InspectionEditor(Base):

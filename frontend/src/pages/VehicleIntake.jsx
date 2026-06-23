@@ -72,11 +72,19 @@ function SectionCard({ title, badge, open, onToggle, children }) {
   )
 }
 
+const SIGNER_ROLES = [
+  { value: 'transportista', label: 'Transportista' },
+  { value: 'cliente_final', label: 'Cliente final' },
+]
+
 function ReviewModal({ form, insp, onClose, onSign, signing }) {
-  const [firmaOrigen, setFirmaOrigen] = useState(null)
-  const [firmaDestino, setFirmaDestino] = useState(null)
-  const [nombreOrigen, setNombreOrigen] = useState(form.nombre || '')
-  const [nombreDestino, setNombreDestino] = useState('')
+  const origenLocked = !!insp?.firma_origen
+  const destinoLocked = !!insp?.firma_destino
+  const [firmaOrigen, setFirmaOrigen] = useState(insp?.firma_origen || null)
+  const [firmaDestino, setFirmaDestino] = useState(insp?.firma_destino || null)
+  const [nombreOrigen, setNombreOrigen] = useState(insp?.nombre_firma_origen || form.nombre || '')
+  const [nombreDestino, setNombreDestino] = useState(insp?.nombre_firma_destino || '')
+  const [rolOrigen, setRolOrigen] = useState(insp?.rol_firma_origen || '')
   const [sigError, setSigError] = useState('')
 
   const vehicleType = insp?.vehicle_type?.toUpperCase() || '—'
@@ -98,9 +106,17 @@ function ReviewModal({ form, insp, onClose, onSign, signing }) {
   ].filter(r => r.value)
 
   function handleSign() {
-    if (!firmaOrigen) { setSigError('Se requiere la firma del cliente'); return }
+    if (!firmaOrigen) { setSigError('Se requiere la firma de quien entrega'); return }
+    if (!origenLocked && !rolOrigen) { setSigError('Indica si quien entrega es transportista o cliente final'); return }
     setSigError('')
-    onSign({ firmaOrigen, nombreOrigen, firmaDestino, nombreDestino })
+    onSign({
+      firmaOrigen,
+      nombreOrigen,
+      rolOrigen: origenLocked ? insp.rol_firma_origen : rolOrigen,
+      fechaOrigen: origenLocked ? insp.fecha_firma_origen : form.fecha,
+      firmaDestino,
+      nombreDestino,
+    })
   }
 
   return (
@@ -185,37 +201,76 @@ function ReviewModal({ form, insp, onClose, onSign, signing }) {
             </h2>
             <div className="space-y-5">
               <div>
-                <SignatureCanvas
-                  label="Firma del Cliente (Origin) *"
-                  onSave={data => { setFirmaOrigen(data); setSigError('') }}
-                  onClear={() => setFirmaOrigen(null)}
-                />
-                {firmaOrigen && (
-                  <div className="mt-2">
-                    <input
-                      value={nombreOrigen}
-                      onChange={e => setNombreOrigen(e.target.value)}
-                      placeholder="Nombre del firmante"
-                      className="w-full bg-[#1e2535] border border-white/10 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]"
-                    />
+                {origenLocked ? (
+                  <div className="bg-[#161b27] border border-white/10 p-3">
+                    <p className="text-[10px] font-mono text-white/30 mb-2">FIRMA DE QUIEN ENTREGA — YA REGISTRADA</p>
+                    <img src={firmaOrigen} alt="Firma de quien entrega" className="w-full h-20 object-contain bg-white" />
+                    <p className="text-sm text-white/70 mt-1.5">
+                      {nombreOrigen || 'Sin nombre'}
+                      {rolOrigen && <span className="text-white/40"> — {SIGNER_ROLES.find(r => r.value === rolOrigen)?.label}</span>}
+                    </p>
                   </div>
+                ) : (
+                  <>
+                    <SignatureCanvas
+                      label="Firma de quien entrega (Origin) *"
+                      onSave={data => { setFirmaOrigen(data); setSigError('') }}
+                      onClear={() => setFirmaOrigen(null)}
+                    />
+                    {firmaOrigen && (
+                      <div className="mt-2 space-y-2">
+                        <input
+                          value={nombreOrigen}
+                          onChange={e => setNombreOrigen(e.target.value)}
+                          placeholder="Nombre del firmante"
+                          className="w-full bg-[#1e2535] border border-white/10 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]"
+                        />
+                        <div className="flex gap-2">
+                          {SIGNER_ROLES.map(r => (
+                            <button
+                              key={r.value}
+                              type="button"
+                              onClick={() => setRolOrigen(r.value)}
+                              className={`flex-1 py-2 text-xs font-mono border transition-colors ${
+                                rolOrigen === r.value
+                                  ? 'bg-[#F5A623] text-[#0f1117] border-[#F5A623]'
+                                  : 'text-white/50 border-white/10 hover:border-white/30'
+                              }`}
+                            >
+                              {r.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
               <div>
-                <SignatureCanvas
-                  label="Firma del Agente (Destination) — opcional"
-                  onSave={data => setFirmaDestino(data)}
-                  onClear={() => setFirmaDestino(null)}
-                />
-                {firmaDestino && (
-                  <div className="mt-2">
-                    <input
-                      value={nombreDestino}
-                      onChange={e => setNombreDestino(e.target.value)}
-                      placeholder="Nombre del agente"
-                      className="w-full bg-[#1e2535] border border-white/10 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]"
-                    />
+                {destinoLocked ? (
+                  <div className="bg-[#161b27] border border-white/10 p-3">
+                    <p className="text-[10px] font-mono text-white/30 mb-2">FIRMA DE QUIEN RECIBE — YA REGISTRADA</p>
+                    <img src={firmaDestino} alt="Firma de quien recibe" className="w-full h-20 object-contain bg-white" />
+                    <p className="text-sm text-white/70 mt-1.5">{nombreDestino || 'Sin nombre'}</p>
                   </div>
+                ) : (
+                  <>
+                    <SignatureCanvas
+                      label="Firma del Agente (Destination) — opcional"
+                      onSave={data => setFirmaDestino(data)}
+                      onClear={() => setFirmaDestino(null)}
+                    />
+                    {firmaDestino && (
+                      <div className="mt-2">
+                        <input
+                          value={nombreDestino}
+                          onChange={e => setNombreDestino(e.target.value)}
+                          placeholder="Nombre del agente"
+                          className="w-full bg-[#1e2535] border border-white/10 text-white px-3 py-2 text-sm focus:outline-none focus:border-[#F5A623]"
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -343,13 +398,14 @@ export default function VehicleIntake() {
     }
   }
 
-  async function handleSign({ firmaOrigen, nombreOrigen, firmaDestino, nombreDestino }) {
+  async function handleSign({ firmaOrigen, nombreOrigen, rolOrigen, fechaOrigen, firmaDestino, nombreDestino }) {
     setSigning(true)
     try {
       await api.post(`/vehicles/${id}/sign`, {
         firma_origen: firmaOrigen,
         nombre_firma_origen: nombreOrigen || null,
-        fecha_firma_origen: form.fecha || null,
+        rol_firma_origen: rolOrigen || null,
+        fecha_firma_origen: fechaOrigen || form.fecha || null,
         firma_destino: firmaDestino || undefined,
         nombre_firma_destino: firmaDestino ? (nombreDestino || null) : undefined,
         fecha_firma_destino: firmaDestino ? (form.fecha || null) : undefined,

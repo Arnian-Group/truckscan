@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr, model_validator
 from typing import Optional, List
 from datetime import datetime, date
 from uuid import UUID
-from .models import UserRole, TrailerStatus, SectionStatus, VehicleType, InspectionStatus
+from .models import UserRole, TrailerStatus, SectionStatus, VehicleType, InspectionStatus, SignerRole
 
 
 # Auth
@@ -169,6 +169,7 @@ class VehicleIntakeUpdate(BaseModel):
 class SignBody(BaseModel):
     firma_origen: str
     nombre_firma_origen: Optional[str] = None
+    rol_firma_origen: Optional[SignerRole] = None
     fecha_firma_origen: Optional[date] = None
     firma_destino: Optional[str] = None
     nombre_firma_destino: Optional[str] = None
@@ -237,6 +238,7 @@ class VehicleInspectionOut(BaseModel):
     mercancias_fotos: Optional[list] = []
     firma_origen: Optional[str]
     nombre_firma_origen: Optional[str]
+    rol_firma_origen: Optional[SignerRole] = None
     fecha_firma_origen: Optional[date]
     firma_hash_origen: Optional[str]
     firma_destino: Optional[str]
@@ -254,6 +256,18 @@ class VehicleInspectionOut(BaseModel):
     damages: List[VehicleDamageOut] = []
 
     model_config = {"from_attributes": True}
+
+
+class VehicleHistoryEntryOut(BaseModel):
+    type: str  # "field_change" | "event"
+    timestamp: datetime
+    user: Optional[UserOut] = None
+    field: Optional[str] = None
+    field_label: Optional[str] = None
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    action: Optional[str] = None
+    action_label: Optional[str] = None
 
 
 class VehicleInspectionListItem(BaseModel):

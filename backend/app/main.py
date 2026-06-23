@@ -119,6 +119,15 @@ async def lifespan(app: FastAPI):
         conn.execute(text(
             "ALTER TYPE vehicletype ADD VALUE IF NOT EXISTS 'mercancias'"
         ))
+        # Signer role (transportista / cliente_final) for the origin signature
+        conn.execute(text(
+            "DO $$ BEGIN "
+            "CREATE TYPE signerrole AS ENUM ('transportista', 'cliente_final'); "
+            "EXCEPTION WHEN duplicate_object THEN null; END $$;"
+        ))
+        conn.execute(text(
+            "ALTER TABLE vehicle_inspections ADD COLUMN IF NOT EXISTS rol_firma_origen signerrole"
+        ))
         conn.commit()
     os.makedirs(settings.UPLOADS_DIR, exist_ok=True)
     os.makedirs(os.path.join(settings.UPLOADS_DIR, "pdfs"), exist_ok=True)

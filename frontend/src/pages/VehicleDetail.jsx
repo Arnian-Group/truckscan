@@ -5,9 +5,15 @@ import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import ShareModal from '../components/ShareModal'
 import EditorsModal from '../components/EditorsModal'
+import VehicleHistory from '../components/VehicleHistory'
 import api from '../lib/api'
 import { isAdmin, canEditDoc, canManageEditors } from '../lib/auth'
 import { mediaUrl, thumbUrl } from '../lib/mediaUrl'
+
+const SIGNER_ROLE_LABELS = {
+  transportista: 'Transportista',
+  cliente_final: 'Cliente final',
+}
 
 const CHECKLIST_ITEMS = [
   { key: 'licencia',     label: 'Copia de Licencia' },
@@ -425,6 +431,11 @@ export default function VehicleDetail() {
                   <p className="text-[10px] font-mono text-white/30 mb-2">{isMercancias ? 'ENTREGA' : 'ORIGEN'}</p>
                   <img src={insp.firma_origen} alt="Firma origen" className="w-full h-16 object-contain bg-white" />
                   {insp.nombre_firma_origen && <p className="text-xs text-white/50 mt-1.5 truncate">{insp.nombre_firma_origen}</p>}
+                  {insp.rol_firma_origen && (
+                    <span className="inline-block mt-1.5 text-[9px] font-mono px-1.5 py-0.5 border text-[#F5A623] border-[#F5A623]/30 bg-[#F5A623]/10">
+                      {SIGNER_ROLE_LABELS[insp.rol_firma_origen] || insp.rol_firma_origen}
+                    </span>
+                  )}
                   {insp.firma_hash_origen && (
                     <div className="flex items-center gap-1.5 mt-2 bg-[#0d1520] border border-[#22C55E]/20 px-2 py-1">
                       <Shield size={10} className="text-[#22C55E] shrink-0" />
@@ -550,6 +561,14 @@ export default function VehicleDetail() {
             <p className="text-white/60 text-sm bg-[#161b27] border border-white/5 p-3">{insp.notas_finales}</p>
           </section>
         )}
+
+        {/* History / chatter */}
+        <section>
+          <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3">Historial de cambios</h2>
+          <div className="bg-[#161b27] border border-white/5 p-4">
+            <VehicleHistory inspectionId={id} />
+          </div>
+        </section>
       </div>
 
       {shareModal && (
