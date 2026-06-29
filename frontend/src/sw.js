@@ -63,22 +63,38 @@ const vehiclesQueue = new Queue('vehicles-write-queue', {
   onSync: async ({ queue }) => {
     let entry
     while ((entry = await queue.shiftRequest())) {
+      // Separate try/catch so network errors (fetch rejection) and server responses
+      // are handled independently — avoiding a double-push-to-queue when we want to
+      // requeue after a 5xx without triggering the network-error catch block.
+      let response
       try {
-        const response = await fetch(entry.request.clone())
-        const clients = await self.clients.matchAll()
-        // A resolved fetch isn't necessarily a success — the server can still reject
-        // the replayed request (e.g. a real validation error). Only clear it from the
-        // UI as "synced" when it actually succeeded; otherwise tell the page it failed
-        // instead of silently dropping it.
-        const message = response.ok
-          ? { type: 'bg-sync-replayed', url: entry.request.url }
-          : { type: 'bg-sync-failed', url: entry.request.url, status: response.status }
-        for (const client of clients) {
-          client.postMessage(message)
-        }
-      } catch (error) {
+        response = await fetch(entry.request.clone())
+      } catch (networkError) {
         await queue.unshiftRequest(entry)
-        throw error
+        throw networkError
+      }
+
+      const clients = await self.clients.matchAll()
+      if (response.ok) {
+        for (const client of clients) {
+          client.postMessage({ type: 'bg-sync-replayed', url: entry.request.url })
+        }
+      } else if (response.status >= 500) {
+        // Transient server error — put back and let background sync retry later.
+        await queue.unshiftRequest(entry)
+        throw new Error(`Server error ${response.status}`)
+      } else {
+        // Permanent client error (4xx) — read the body for a human-readable message
+        // so the UI can show the user what actually went wrong instead of just a status code.
+        let detail = `Error ${response.status}`
+        try {
+          const body = await response.json()
+          if (typeof body.detail === 'string') detail = body.detail
+          else if (typeof body.message === 'string') detail = body.message
+        } catch {}
+        for (const client of clients) {
+          client.postMessage({ type: 'bg-sync-failed', url: entry.request.url, status: response.status, detail })
+        }
       }
     }
   },
