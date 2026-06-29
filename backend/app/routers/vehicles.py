@@ -21,7 +21,7 @@ from ..auth import get_current_user, require_vehicle_agent, require_admin, get_c
 from ..schemas import (
     VehicleIntakeCreate, VehicleIntakeUpdate, SignBody,
     VehicleDamageUpdate, VehicleDamageOut,
-    VehicleInspectionOut, VehicleInspectionListItem,
+    VehicleInspectionOut, VehicleInspectionListItem, VehicleVinSiblingOut,
     PaginatedResponse, ChecklistUpdate, CompleteBody,
     EditorCreate, EditorOut, UserOut, VehicleHistoryEntryOut,
 )
@@ -911,6 +911,43 @@ def get_inspection(
     insp = _get_inspection_any(db, inspection_id)
     log_action(db, current_user.id, "vehicle_inspection_viewed", "vehicle_inspection", str(insp.id))
     return insp
+
+
+@router.get("/{inspection_id}/vin-history", response_model=List[VehicleVinSiblingOut])
+def get_vin_history(
+    inspection_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vehicle_agent),
+):
+    insp = _get_inspection_any(db, inspection_id)
+    if not insp.vin:
+        return []
+    siblings = (
+        db.query(VehicleInspection)
+        .options(joinedload(VehicleInspection.damages))
+        .filter(
+            VehicleInspection.vin.ilike(insp.vin),
+            VehicleInspection.id != inspection_id,
+            VehicleInspection.is_deleted == False,
+        )
+        .order_by(VehicleInspection.created_at.desc())
+        .all()
+    )
+    return [
+        VehicleVinSiblingOut(
+            id=s.id,
+            folio=s.folio,
+            city=s.city,
+            fecha=s.fecha,
+            status=s.status,
+            created_at=s.created_at,
+            year=s.year,
+            make=s.make,
+            model=s.model,
+            damage_count=sum(1 for d in s.damages if d.damage_type != "condition"),
+        )
+        for s in siblings
+    ]
 
 
 @router.get("/{inspection_id}/history", response_model=List[VehicleHistoryEntryOut])

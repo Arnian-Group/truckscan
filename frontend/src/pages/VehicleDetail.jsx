@@ -146,6 +146,7 @@ export default function VehicleDetail() {
   const [shareModal, setShareModal] = useState(false)
   const [editorsModal, setEditorsModal] = useState(false)
   const [stale, setStale] = useState(false)
+  const [vinSiblings, setVinSiblings] = useState([])
   const admin = isAdmin()
 
   const openPhoto = useCallback((photos, i) => {
@@ -157,6 +158,11 @@ export default function VehicleDetail() {
     return api.get(`/vehicles/${id}`).then(({ data }) => {
       setInsp(data)
       setChecklist(data.checklist || {})
+      if (data.vin) {
+        api.get(`/vehicles/${id}/vin-history`)
+          .then(({ data: siblings }) => setVinSiblings(siblings))
+          .catch(() => {})
+      }
     }).catch(console.error).finally(() => setLoading(false))
   }
 
@@ -271,6 +277,43 @@ export default function VehicleDetail() {
             </div>
           )}
         </div>
+
+        {/* VIN siblings — other records for the same vehicle across branches */}
+        {vinSiblings.length > 0 && (
+          <section>
+            <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-2">
+              Mismo VIN en otros registros ({vinSiblings.length})
+            </h2>
+            <div className="space-y-1">
+              {vinSiblings.map(s => {
+                const sSt = STATUS_LABELS[s.status] || STATUS_LABELS.intake
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => navigate(`/vehicles/${s.id}`)}
+                    className="w-full flex items-center gap-3 bg-[#161b27] border border-white/5 hover:border-white/20 px-3 py-2.5 text-left transition-colors"
+                  >
+                    <span className={`font-mono text-[10px] font-bold px-1.5 py-0.5 border whitespace-nowrap shrink-0 ${sSt.color}`}>
+                      {sSt.label}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white/70 truncate">{s.city || '—'}</p>
+                      {s.folio && <p className="text-[11px] text-white/30 font-mono">{s.folio}</p>}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs text-white/40 font-mono">
+                        {s.fecha ? new Date(s.fecha + 'T00:00:00').toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                      </p>
+                      {s.damage_count > 0 && (
+                        <p className="text-[11px] text-white/25">{s.damage_count} daño{s.damage_count !== 1 ? 's' : ''}</p>
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Mercancias content */}
         {isMercancias && (

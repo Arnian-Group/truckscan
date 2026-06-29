@@ -295,6 +295,19 @@ class VehicleInspectionListItem(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class VehicleVinSiblingOut(BaseModel):
+    id: UUID
+    folio: Optional[str]
+    city: Optional[str]
+    fecha: Optional[date]
+    status: InspectionStatus
+    created_at: datetime
+    year: Optional[int]
+    make: Optional[str]
+    model: Optional[str]
+    damage_count: int = 0
+
+
 # Editors (creator-managed edit/close access)
 class EditorCreate(BaseModel):
     user_id: UUID
