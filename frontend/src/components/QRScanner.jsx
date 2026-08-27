@@ -8,19 +8,41 @@ QrScanner.WORKER_PATH = QrScannerWorkerPath
 
 // Camera-based QR scanner with a manual-entry fallback — desktop admins have no
 // camera, and headless/kiosk devices or permission-denied cases need a way in too.
+//
+// `onScan(token)` is awaited and may throw — a rejection is shown right here in
+// the sheet (camera keeps running / manual form stays open) instead of the caller
+// silently failing behind an overlay the user can't see past.
 export default function QRScanner({ onScan, onClose }) {
   const videoRef = useRef(null)
   const scannerRef = useRef(null)
   const [cameraError, setCameraError] = useState('')
+  const [scanError, setScanError] = useState('')
   const [manualMode, setManualMode] = useState(false)
   const [manualValue, setManualValue] = useState('')
+  const [checking, setChecking] = useState(false)
+  const handlingRef = useRef(false) // guards against the camera firing onScan again mid-lookup
+
+  async function handleToken(token) {
+    if (handlingRef.current) return
+    handlingRef.current = true
+    setChecking(true)
+    setScanError('')
+    try {
+      await onScan(token)
+      // onScan navigates away on success — nothing left to reset here.
+    } catch (err) {
+      setScanError(err?.message || 'Código no reconocido')
+      handlingRef.current = false
+      setChecking(false)
+    }
+  }
 
   useEffect(() => {
     if (manualMode) return
     let cancelled = false
     const scanner = new QrScanner(
       videoRef.current,
-      (result) => { if (!cancelled) onScan(result.data || result) },
+      (result) => { if (!cancelled) handleToken(result.data || result) },
       { highlightScanRegion: true, highlightCodeOutline: true, maxScansPerSecond: 5 }
     )
     scannerRef.current = scanner
@@ -37,7 +59,7 @@ export default function QRScanner({ onScan, onClose }) {
 
   function handleManualSubmit(e) {
     e.preventDefault()
-    if (manualValue.trim()) onScan(manualValue.trim())
+    if (manualValue.trim() && !checking) handleToken(manualValue.trim())
   }
 
   return (
@@ -64,6 +86,11 @@ export default function QRScanner({ onScan, onClose }) {
           <>
             <div className="relative w-full aspect-square bg-black overflow-hidden border border-white/10">
               <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
+              {checking && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                  <div className="w-8 h-8 border-2 border-[#F5A623] border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
             </div>
             {cameraError && (
               <div className="mt-3 flex items-start gap-2 text-red-400 text-xs font-mono border border-red-400/30 bg-red-400/10 px-3 py-2">
@@ -71,9 +98,15 @@ export default function QRScanner({ onScan, onClose }) {
                 <span>{cameraError} — usa el código manual abajo.</span>
               </div>
             )}
+            {scanError && (
+              <div className="mt-3 flex items-start gap-2 text-red-400 text-xs font-mono border border-red-400/30 bg-red-400/10 px-3 py-2">
+                <CameraOff size={14} className="shrink-0 mt-0.5" />
+                <span>{scanError}</span>
+              </div>
+            )}
             <button
               type="button"
-              onClick={() => setManualMode(true)}
+              onClick={() => { setManualMode(true); setScanError('') }}
               className="w-full flex items-center justify-center gap-2 mt-3 py-3 text-sm font-mono text-white/50 border border-white/10 hover:text-white hover:border-white/30 transition-colors min-h-[48px]"
             >
               <Keyboard size={15} /> Ingresar código manualmente
@@ -92,16 +125,19 @@ export default function QRScanner({ onScan, onClose }) {
               className="w-full bg-[#1e2535] border border-white/10 text-white px-4 py-3.5 text-base focus:outline-none focus:border-[#F5A623] min-h-[56px] font-mono"
               placeholder="Código impreso bajo el QR"
             />
+            {scanError && (
+              <p className="text-red-400 text-xs font-mono border border-red-400/30 bg-red-400/10 px-3 py-2">{scanError}</p>
+            )}
             <button
               type="submit"
-              disabled={!manualValue.trim()}
+              disabled={!manualValue.trim() || checking}
               className="w-full bg-[#F5A623] text-[#0f1117] font-bold text-base py-4 min-h-[56px] hover:bg-[#e8961f] disabled:opacity-40 transition-colors"
             >
-              Buscar unidad
+              {checking ? 'Buscando...' : 'Buscar unidad'}
             </button>
             <button
               type="button"
-              onClick={() => { setManualMode(false); setCameraError('') }}
+              onClick={() => { setManualMode(false); setCameraError(''); setScanError('') }}
               className="w-full flex items-center justify-center gap-2 py-2.5 text-sm font-mono text-white/40 hover:text-white transition-colors min-h-[44px]"
             >
               <Camera size={15} /> Volver a la cámara

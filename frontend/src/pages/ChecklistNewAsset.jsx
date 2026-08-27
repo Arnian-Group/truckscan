@@ -33,7 +33,6 @@ export default function ChecklistNewAsset() {
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [scanning, setScanning] = useState(false)
-  const [scanError, setScanError] = useState('')
   const idemKey = useRef(newIdempotencyKey())
 
   useEffect(() => {
@@ -45,21 +44,19 @@ export default function ChecklistNewAsset() {
       .finally(() => setLoading(false))
   }, [templateId])
 
+  // Throws on any failure — QRScanner awaits this and shows the message inline,
+  // in the sheet the user is actually looking at, rather than a state update on
+  // this page that would render behind the still-open scanner modal.
   async function handleScan(token) {
-    setScanError('')
-    try {
-      const { data: asset } = await api.get(`/checklists/assets/by-qr/${encodeURIComponent(token)}`)
-      if (asset.asset_type !== template.asset_type) {
-        setScanError(`Esa unidad es de tipo "${asset.asset_type}", no corresponde a este checklist.`)
-        return
-      }
-      setScanning(false)
-      await createSubmission(asset)
-    } catch (err) {
-      setScanError(err.response?.data?.detail || 'Código QR no reconocido')
+    const { data: asset } = await api.get(`/checklists/assets/by-qr/${encodeURIComponent(token)}`)
+    if (asset.asset_type !== template.asset_type) {
+      throw new Error(`Esa unidad es de tipo "${asset.asset_type}", no corresponde a este checklist.`)
     }
+    await createSubmission(asset) // navigates on success, throws on failure
   }
 
+  // Always throws on failure — callers decide how to surface it (inline in the
+  // scanner sheet for handleScan, a plain alert for the direct-tap list below).
   async function createSubmission(asset) {
     if (creating || !template) return
     setCreating(true)
@@ -72,8 +69,17 @@ export default function ChecklistNewAsset() {
       }, { headers: { 'Idempotency-Key': idemKey.current } })
       navigate(`/checklists/${data.id}/fill`)
     } catch (err) {
-      alert(err.response?.data?.detail || 'Sin conexión: no se pudo crear el checklist. Intenta de nuevo cuando tengas señal.')
+      throw new Error(err.response?.data?.detail || 'Sin conexión: no se pudo crear el checklist. Intenta de nuevo cuando tengas señal.')
+    } finally {
       setCreating(false)
+    }
+  }
+
+  async function handleTapCreate(asset) {
+    try {
+      await createSubmission(asset)
+    } catch (err) {
+      alert(err.message)
     }
   }
 
@@ -83,14 +89,11 @@ export default function ChecklistNewAsset() {
         <p className="text-white/40 text-sm font-mono mb-4">Selecciona la unidad (o continúa sin registrarla)</p>
 
         <button
-          onClick={() => { setScanError(''); setScanning(true) }}
+          onClick={() => setScanning(true)}
           className="w-full flex items-center justify-center gap-2 bg-[#F5A62315] border border-[#F5A62340] text-[#F5A623] font-bold py-3.5 mb-4 min-h-[52px] hover:bg-[#F5A62322] transition-colors"
         >
           <QrCode size={18} /> Escanear QR de la unidad
         </button>
-        {scanError && (
-          <p className="text-red-400 text-xs font-mono border border-red-400/30 bg-red-400/10 px-3 py-2 mb-4">{scanError}</p>
-        )}
 
         {loading ? (
           <div className="flex justify-center py-16">
@@ -102,7 +105,7 @@ export default function ChecklistNewAsset() {
               <button
                 key={a.id}
                 disabled={creating}
-                onClick={() => createSubmission(a)}
+                onClick={() => handleTapCreate(a)}
                 className="w-full bg-[#161b27] border border-white/10 hover:border-[#F5A623]/60 active:scale-98 transition-all p-4 flex items-center gap-3 text-left disabled:opacity-50"
               >
                 <Wrench size={18} className="text-[#F5A623] shrink-0" />
@@ -116,7 +119,7 @@ export default function ChecklistNewAsset() {
             ))}
             <button
               disabled={creating}
-              onClick={() => createSubmission(null)}
+              onClick={() => handleTapCreate(null)}
               className="w-full border border-dashed border-white/15 hover:border-[#F5A623]/60 active:scale-98 transition-all p-4 text-center text-white/40 hover:text-white text-sm font-mono disabled:opacity-50 min-h-[56px]"
             >
               {creating ? 'Creando...' : 'Continuar sin unidad registrada'}

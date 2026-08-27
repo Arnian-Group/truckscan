@@ -94,6 +94,12 @@ export default function ChecklistFill() {
     }).finally(() => setLoading(false))
   }, [id])
 
+  // Kept current every render so the unmount-flush effect below (which can only
+  // close over values from when it was set up) always sees the latest state,
+  // without needing headerValues/responses/flush in its own dependency array.
+  const latestRef = useRef({ headerValues, responses })
+  useEffect(() => { latestRef.current = { headerValues, responses } })
+
   const flush = useCallback(async (hv, resp) => {
     clearTimeout(saveTimer.current)
     if (!dirtyRef.current) return
@@ -119,6 +125,18 @@ export default function ChecklistFill() {
       setSaving(false)
     }
   }, [id])
+
+  // Flush any pending (still-debounced) edit on unmount — without this, answering
+  // an item and immediately hitting the browser/nav back button within the 900ms
+  // debounce window silently lost that answer, since only the explicit "Continuar
+  // a firmas" button flushed before navigating.
+  const flushRef = useRef(flush)
+  useEffect(() => { flushRef.current = flush })
+  useEffect(() => {
+    return () => {
+      if (dirtyRef.current) flushRef.current(latestRef.current.headerValues, latestRef.current.responses)
+    }
+  }, [])
 
   function scheduleSave(hv, resp) {
     dirtyRef.current = true

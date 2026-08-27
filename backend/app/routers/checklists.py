@@ -728,9 +728,16 @@ def public_verify_submission(
     if not sub:
         return {"valid": False, "entries_checked": 0, "error": "Checklist no encontrado"}
 
+    # autoescape=True is required — SQLAlchemy's .startswith() does NOT escape LIKE
+    # wildcards by default, so plain .startswith(h) is just as exploitable as
+    # .like(f"{h}%"): h="%" (or "_") would match any/every hash for this submission,
+    # verifying it without actually knowing a real prefix of its chain.
     token_entry = (
         db.query(ChecklistLogEntry)
-        .filter(ChecklistLogEntry.submission_id == submission_id, ChecklistLogEntry.entry_hash.like(f"{h}%"))
+        .filter(
+            ChecklistLogEntry.submission_id == submission_id,
+            ChecklistLogEntry.entry_hash.startswith(h, autoescape=True),
+        )
         .first()
     )
     if not token_entry:
