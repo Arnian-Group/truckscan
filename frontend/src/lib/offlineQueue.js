@@ -77,13 +77,19 @@ export function subscribe(cb) {
   return () => listeners.delete(cb)
 }
 
+// Every module's write queue registered in sw.js (see createWriteQueue there) —
+// kept in one place so triggerSync() below doesn't need to know which modules
+// actually have pending writes; registering a tag with nothing queued is a no-op.
+const SYNC_QUEUE_NAMES = ['vehicles-write-queue', 'checklists-write-queue']
+
 // Kick the background sync queue manually — useful when the browser's native
 // Background Sync API hasn't fired yet after a reconnect (common on mobile).
 export async function triggerSync() {
   if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return
   try {
     const reg = await navigator.serviceWorker.ready
-    if ('sync' in reg) await reg.sync.register('workbox-background-sync:vehicles-write-queue')
+    if (!('sync' in reg)) return
+    await Promise.all(SYNC_QUEUE_NAMES.map((name) => reg.sync.register(`workbox-background-sync:${name}`)))
   } catch {}
 }
 

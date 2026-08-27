@@ -57,60 +57,70 @@ registerRoute(
 )
 
 // Writes: queue + automatic retry when connectivity returns (Background Sync API,
-// with Workbox's built-in fallback replay for browsers that lack it).
-const vehiclesQueue = new Queue('vehicles-write-queue', {
-  maxRetentionTime: 7 * 24 * 60, // minutes
-  onSync: async ({ queue }) => {
-    let entry
-    while ((entry = await queue.shiftRequest())) {
-      // Separate try/catch so network errors (fetch rejection) and server responses
-      // are handled independently — avoiding a double-push-to-queue when we want to
-      // requeue after a 5xx without triggering the network-error catch block.
-      let response
-      try {
-        response = await fetch(entry.request.clone())
-      } catch (networkError) {
-        await queue.unshiftRequest(entry)
-        throw networkError
-      }
-
-      const clients = await self.clients.matchAll()
-      if (response.ok) {
-        for (const client of clients) {
-          client.postMessage({ type: 'bg-sync-replayed', url: entry.request.url })
-        }
-      } else if (response.status >= 500) {
-        // Transient server error — put back and let background sync retry later.
-        await queue.unshiftRequest(entry)
-        throw new Error(`Server error ${response.status}`)
-      } else {
-        // Permanent client error (4xx) — read the body for a human-readable message
-        // so the UI can show the user what actually went wrong instead of just a status code.
-        let detail = `Error ${response.status}`
+// with Workbox's built-in fallback replay for browsers that lack it). Shared between
+// every module's write queue (vehicles, checklists, ...) — same retry/notify contract
+// for all of them, so the app only needs one 'bg-sync-replayed'/'bg-sync-failed'
+// listener (see lib/offlineQueue.js) regardless of how many modules use it.
+function createWriteQueue(name) {
+  return new Queue(name, {
+    maxRetentionTime: 7 * 24 * 60, // minutes
+    onSync: async ({ queue }) => {
+      let entry
+      while ((entry = await queue.shiftRequest())) {
+        // Separate try/catch so network errors (fetch rejection) and server responses
+        // are handled independently — avoiding a double-push-to-queue when we want to
+        // requeue after a 5xx without triggering the network-error catch block.
+        let response
         try {
-          const body = await response.json()
-          if (typeof body.detail === 'string') detail = body.detail
-          else if (typeof body.message === 'string') detail = body.message
-        } catch {}
-        for (const client of clients) {
-          client.postMessage({ type: 'bg-sync-failed', url: entry.request.url, status: response.status, detail })
+          response = await fetch(entry.request.clone())
+        } catch (networkError) {
+          await queue.unshiftRequest(entry)
+          throw networkError
+        }
+
+        const clients = await self.clients.matchAll()
+        if (response.ok) {
+          for (const client of clients) {
+            client.postMessage({ type: 'bg-sync-replayed', url: entry.request.url })
+          }
+        } else if (response.status >= 500) {
+          // Transient server error — put back and let background sync retry later.
+          await queue.unshiftRequest(entry)
+          throw new Error(`Server error ${response.status}`)
+        } else {
+          // Permanent client error (4xx) — read the body for a human-readable message
+          // so the UI can show the user what actually went wrong instead of just a status code.
+          let detail = `Error ${response.status}`
+          try {
+            const body = await response.json()
+            if (typeof body.detail === 'string') detail = body.detail
+            else if (typeof body.message === 'string') detail = body.message
+          } catch {}
+          for (const client of clients) {
+            client.postMessage({ type: 'bg-sync-failed', url: entry.request.url, status: response.status, detail })
+          }
         }
       }
-    }
-  },
-})
+    },
+  })
+}
 
-async function handleVehicleWrite({ event }) {
-  try {
-    return await fetch(event.request.clone())
-  } catch (error) {
-    await vehiclesQueue.pushRequest({ request: event.request })
-    return new Response(JSON.stringify({ queued: true }), {
-      status: 202,
-      headers: { 'Content-Type': 'application/json' },
-    })
+function makeWriteHandler(queue) {
+  return async function handleWrite({ event }) {
+    try {
+      return await fetch(event.request.clone())
+    } catch (error) {
+      await queue.pushRequest({ request: event.request })
+      return new Response(JSON.stringify({ queued: true }), {
+        status: 202,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
   }
 }
+
+const vehiclesQueue = createWriteQueue('vehicles-write-queue')
+const handleVehicleWrite = makeWriteHandler(vehiclesQueue)
 
 // Excludes the bare POST /vehicles (create) endpoint on purpose: creating a brand-new
 // inspection needs a server-assigned id before the app can navigate anywhere, so it
@@ -121,3 +131,15 @@ const isVehicleWrite = ({ url }) => /^\/vehicles\/[^/]+/.test(url.pathname)
 registerRoute(isVehicleWrite, handleVehicleWrite, 'POST')
 registerRoute(isVehicleWrite, handleVehicleWrite, 'PATCH')
 registerRoute(isVehicleWrite, handleVehicleWrite, 'DELETE')
+
+const checklistsQueue = createWriteQueue('checklists-write-queue')
+const handleChecklistWrite = makeWriteHandler(checklistsQueue)
+
+// Same reasoning as isVehicleWrite: the bare POST /checklists/submissions (create)
+// needs a server-assigned id + folio before the app can navigate to the fill screen,
+// so it fails fast offline instead of queuing. Everything scoped to an existing
+// submission id (autosave PATCH, sign, submit) is queued and retried automatically.
+const isChecklistWrite = ({ url }) => /^\/checklists\/submissions\/[^/]+/.test(url.pathname)
+
+registerRoute(isChecklistWrite, handleChecklistWrite, 'PATCH')
+registerRoute(isChecklistWrite, handleChecklistWrite, 'POST')

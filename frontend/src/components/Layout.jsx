@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
-import { logout, getUser, isAdmin, canTrailers, canVehicles } from '../lib/auth'
-import { Truck, List, ClipboardList, Users, LogOut, Car, LayoutDashboard, Link2, CloudOff, AlertTriangle, X, RefreshCw } from 'lucide-react'
+import { logout, getUser, isAdmin, canTrailers, canVehicles, canChecklists } from '../lib/auth'
+import { Truck, List, ClipboardList, Users, LogOut, Car, LayoutDashboard, Link2, CloudOff, AlertTriangle, X, RefreshCw, ClipboardCheck } from 'lucide-react'
 import { subscribe as subscribeSyncStatus, getPending, dismiss, triggerSync } from '../lib/offlineQueue'
 
 export default function Layout({ children, title, back }) {
@@ -10,6 +10,7 @@ export default function Layout({ children, title, back }) {
   const user = getUser()
   const showVehicles = canVehicles()
   const showTrailers = canTrailers()
+  const showChecklists = canChecklists()
   const [syncStatus, setSyncStatus] = useState({ pending: 0, failed: 0 })
   const [syncPanel, setSyncPanel] = useState(false)
   const [panelItems, setPanelItems] = useState([])
@@ -158,7 +159,7 @@ export default function Layout({ children, title, back }) {
 
       {/* Bottom nav */}
       <nav className="bg-[#161b27] border-t border-white/10 flex sticky bottom-0 z-40 pb-safe">
-        {(showTrailers && showVehicles) || isAdmin() ? (
+        {[showTrailers, showVehicles, showChecklists].filter(Boolean).length > 1 || isAdmin() ? (
           <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Inicio" active={location.pathname === '/'} />
         ) : null}
         {showTrailers && (
@@ -166,6 +167,9 @@ export default function Layout({ children, title, back }) {
         )}
         {showVehicles && (
           <NavItem to="/vehicles" icon={<Car size={20} />} label="Recibos" active={location.pathname.startsWith('/vehicles')} />
+        )}
+        {showChecklists && (
+          <NavItem to="/checklists" icon={<ClipboardCheck size={20} />} label="Checklists" active={location.pathname.startsWith('/checklists')} />
         )}
         {isAdmin() && (
           <>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, X, UserCheck, Shield, Loader, Trash2, Car, Truck, Pencil } from 'lucide-react'
+import { Plus, X, UserCheck, Shield, Loader, Trash2, Car, Truck, Pencil, ClipboardCheck } from 'lucide-react'
 import Layout from '../components/Layout'
 import api from '../lib/api'
 import { getUser } from '../lib/auth'
@@ -16,11 +16,13 @@ function roleLabel(user) {
   const tags = []
   if (user.can_trailers) tags.push('trailers')
   if (user.can_vehicles) tags.push('vehicles')
+  if (user.can_checklists) tags.push('checklists')
   return tags.join('+') || 'sin acceso'
 }
 
 export default function Users() {
   const [users, setUsers] = useState([])
+  const [assetTypes, setAssetTypes] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
@@ -31,8 +33,14 @@ export default function Users() {
   async function load() {
     setLoading(true)
     try {
-      const { data } = await api.get('/users')
+      const [{ data }, assetTypesRes] = await Promise.all([
+        api.get('/users'),
+        // Known checklist types come from active templates, not a hardcoded list —
+        // a newly seeded checklist type shows up here automatically.
+        api.get('/checklists/asset-types').catch(() => ({ data: [] })),
+      ])
       setUsers(data)
+      setAssetTypes(assetTypesRes.data)
     } catch (err) {
       console.error(err)
     } finally {
@@ -87,10 +95,15 @@ export default function Users() {
                     {isSelf && <span className="ml-2 text-[10px] font-mono text-[#F5A623] bg-[#F5A62320] px-1.5 py-0.5">TÚ</span>}
                   </div>
                   <div className="text-xs text-white/40 font-mono truncate">{user.email}</div>
-                  <div className="flex gap-1.5 mt-1">
+                  <div className="flex flex-wrap gap-1.5 mt-1">
                     {user.is_admin && <ModBadge color="amber" icon={<Shield size={9} />} label="Admin" />}
                     {user.can_trailers && <ModBadge color="blue" icon={<Truck size={9} />} label="Carga" />}
                     {user.can_vehicles && <ModBadge color="purple" icon={<Car size={9} />} label="Vehículos" />}
+                    {user.can_checklists && !user.is_admin && (user.checklist_asset_types || []).map((t) => (
+                      <ModBadge key={t} color="green" icon={<ClipboardCheck size={9} />}
+                                label={assetTypes.find((a) => a.asset_type === t)?.label || t} />
+                    ))}
+                    {user.can_checklists && user.is_admin && <ModBadge color="green" icon={<ClipboardCheck size={9} />} label="Checklists" />}
                   </div>
                 </div>
 
@@ -134,6 +147,7 @@ export default function Users() {
       <AnimatePresence>
         {showCreate && (
           <CreateUserModal
+            assetTypes={assetTypes}
             onClose={() => setShowCreate(false)}
             onCreated={(u) => { setUsers((prev) => [...prev, u]); setShowCreate(false) }}
           />
@@ -141,6 +155,7 @@ export default function Users() {
         {editingUser && (
           <EditUserModal
             user={editingUser}
+            assetTypes={assetTypes}
             onClose={() => setEditingUser(null)}
             onSaved={(updated) => {
               setUsers((prev) => prev.map(u => u.id === updated.id ? updated : u))
@@ -158,6 +173,7 @@ function ModBadge({ color, icon, label }) {
     amber: 'bg-[#F5A62215] text-[#F5A623] border-[#F5A62330]',
     blue: 'bg-blue-400/10 text-blue-400 border-blue-400/20',
     purple: 'bg-purple-400/10 text-purple-400 border-purple-400/20',
+    green: 'bg-[#22C55E]/10 text-[#22C55E] border-[#22C55E]/20',
   }
   return (
     <span className={`flex items-center gap-1 px-1.5 py-0.5 border font-mono text-[9px] font-bold ${colors[color]}`}>
@@ -166,19 +182,21 @@ function ModBadge({ color, icon, label }) {
   )
 }
 
-function CreateUserModal({ onClose, onCreated }) {
+function CreateUserModal({ assetTypes, onClose, onCreated }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
   const [canTrailers, setCanTrailers] = useState(false)
   const [canVehicles, setCanVehicles] = useState(false)
+  const [canChecklists, setCanChecklists] = useState(false)
+  const [checklistTypes, setChecklistTypes] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   function handleAdminToggle(val) {
     setIsAdmin(val)
-    if (val) { setCanTrailers(true); setCanVehicles(true) }
+    if (val) { setCanTrailers(true); setCanVehicles(true); setCanChecklists(true) }
   }
 
   async function handleSubmit(e) {
@@ -191,6 +209,8 @@ function CreateUserModal({ onClose, onCreated }) {
         is_admin: isAdmin,
         can_trailers: isAdmin || canTrailers,
         can_vehicles: isAdmin || canVehicles,
+        can_checklists: isAdmin || canChecklists,
+        checklist_asset_types: checklistTypes,
       })
       onCreated(data)
     } catch (err) {
@@ -247,8 +267,19 @@ function CreateUserModal({ onClose, onCreated }) {
                 icon={<Car size={16} className="text-purple-400" />}
                 label="Módulo de Vehículos (receiving)"
               />
+              <CheckRow
+                checked={isAdmin || canChecklists}
+                onChange={v => { if (!isAdmin) setCanChecklists(v) }}
+                disabled={isAdmin}
+                icon={<ClipboardCheck size={16} className="text-[#22C55E]" />}
+                label="Módulo de Checklists"
+              />
             </div>
           </div>
+
+          {!isAdmin && canChecklists && assetTypes.length > 0 && (
+            <ChecklistTypeCheckboxes assetTypes={assetTypes} selected={checklistTypes} onChange={setChecklistTypes} />
+          )}
 
           {error && (
             <p className="text-red-400 text-sm font-mono border border-red-400/30 bg-red-400/10 px-3 py-2">{error}</p>
@@ -256,7 +287,7 @@ function CreateUserModal({ onClose, onCreated }) {
 
           <button
             type="submit"
-            disabled={loading || (!isAdmin && !canTrailers && !canVehicles)}
+            disabled={loading || (!isAdmin && !canTrailers && !canVehicles && !canChecklists)}
             className="w-full bg-[#F5A623] text-[#0f1117] font-bold text-base py-4 min-h-[56px] hover:bg-[#e8961f] transition-colors disabled:opacity-60"
           >
             {loading ? 'Creando...' : 'Crear Usuario'}
@@ -267,16 +298,42 @@ function CreateUserModal({ onClose, onCreated }) {
   )
 }
 
-function EditUserModal({ user, onClose, onSaved }) {
+function ChecklistTypeCheckboxes({ assetTypes, selected, onChange }) {
+  function toggle(assetType) {
+    onChange(selected.includes(assetType) ? selected.filter((t) => t !== assetType) : [...selected, assetType])
+  }
+  return (
+    <div>
+      <label className="block text-xs font-mono text-white/50 uppercase tracking-wider mb-2">
+        Tipos de checklist permitidos
+      </label>
+      <div className="space-y-2">
+        {assetTypes.map((t) => (
+          <CheckRow
+            key={t.asset_type}
+            checked={selected.includes(t.asset_type)}
+            onChange={() => toggle(t.asset_type)}
+            icon={<ClipboardCheck size={16} className="text-[#22C55E]" />}
+            label={t.label}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function EditUserModal({ user, assetTypes, onClose, onSaved }) {
   const [isAdmin, setIsAdmin] = useState(user.is_admin)
   const [canTrailers, setCanTrailers] = useState(user.can_trailers)
   const [canVehicles, setCanVehicles] = useState(user.can_vehicles)
+  const [canChecklists, setCanChecklists] = useState(user.can_checklists)
+  const [checklistTypes, setChecklistTypes] = useState(user.checklist_asset_types || [])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   function handleAdminToggle(val) {
     setIsAdmin(val)
-    if (val) { setCanTrailers(true); setCanVehicles(true) }
+    if (val) { setCanTrailers(true); setCanVehicles(true); setCanChecklists(true) }
   }
 
   async function handleSave() {
@@ -287,6 +344,8 @@ function EditUserModal({ user, onClose, onSaved }) {
         is_admin: isAdmin,
         can_trailers: isAdmin || canTrailers,
         can_vehicles: isAdmin || canVehicles,
+        can_checklists: isAdmin || canChecklists,
+        checklist_asset_types: checklistTypes,
       })
       onSaved(data)
     } catch (err) {
@@ -337,7 +396,20 @@ function EditUserModal({ user, onClose, onSaved }) {
             icon={<Car size={16} className="text-purple-400" />}
             label="Módulo de Vehículos (receiving)"
           />
+          <CheckRow
+            checked={isAdmin || canChecklists}
+            onChange={v => { if (!isAdmin) setCanChecklists(v) }}
+            disabled={isAdmin}
+            icon={<ClipboardCheck size={16} className="text-[#22C55E]" />}
+            label="Módulo de Checklists"
+          />
         </div>
+
+        {!isAdmin && canChecklists && assetTypes.length > 0 && (
+          <div className="mb-5">
+            <ChecklistTypeCheckboxes assetTypes={assetTypes} selected={checklistTypes} onChange={setChecklistTypes} />
+          </div>
+        )}
 
         {error && (
           <p className="text-red-400 text-sm font-mono border border-red-400/30 bg-red-400/10 px-3 py-2 mb-4">{error}</p>
@@ -345,7 +417,7 @@ function EditUserModal({ user, onClose, onSaved }) {
 
         <button
           onClick={handleSave}
-          disabled={loading || (!isAdmin && !canTrailers && !canVehicles)}
+          disabled={loading || (!isAdmin && !canTrailers && !canVehicles && !canChecklists)}
           className="w-full bg-[#F5A623] text-[#0f1117] font-bold text-base py-4 min-h-[56px] hover:bg-[#e8961f] transition-colors disabled:opacity-60"
         >
           {loading ? 'Guardando...' : 'Guardar cambios'}

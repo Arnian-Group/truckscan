@@ -1,8 +1,8 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from ..database import get_db
-from ..models import User, UserRole
+from ..models import User, UserRole, ChecklistAssetTypeGrant
 from ..auth import get_current_user, require_admin, hash_password
 from ..schemas import UserCreate, UserOut, UserUpdate
 from ..audit import log_action
@@ -10,12 +10,27 @@ from ..audit import log_action
 router = APIRouter()
 
 
+def _sync_checklist_grants(db: Session, user: User, asset_types: list, granted_by) -> None:
+    """Replaces a user's full set of checklist asset-type grants with `asset_types`."""
+    db.query(ChecklistAssetTypeGrant).filter(ChecklistAssetTypeGrant.user_id == user.id).delete()
+    for asset_type in dict.fromkeys(asset_types):  # de-dupe, preserve order
+        db.add(ChecklistAssetTypeGrant(
+            id=uuid.uuid4(), user_id=user.id, asset_type=asset_type, granted_by=granted_by,
+        ))
+
+
 @router.get("", response_model=list[UserOut])
 def list_users(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    return db.query(User).filter(User.is_active == True).order_by(User.created_at).all()
+    return (
+        db.query(User)
+        .options(joinedload(User.checklist_access))
+        .filter(User.is_active == True)
+        .order_by(User.created_at)
+        .all()
+    )
 
 
 @router.post("", response_model=UserOut, status_code=201)
@@ -38,7 +53,9 @@ def create_user(
         existing.is_admin = body.is_admin
         existing.can_trailers = body.can_trailers
         existing.can_vehicles = body.can_vehicles
+        existing.can_checklists = body.can_checklists
         existing.is_active = True
+        _sync_checklist_grants(db, existing, body.checklist_asset_types, current_user.id)
         db.commit()
         db.refresh(existing)
         log_action(db, current_user.id, "user_reactivated", "user", str(existing.id),
@@ -54,9 +71,12 @@ def create_user(
         is_admin=body.is_admin,
         can_trailers=body.can_trailers,
         can_vehicles=body.can_vehicles,
+        can_checklists=body.can_checklists,
         is_active=True,
     )
     db.add(user)
+    db.flush()
+    _sync_checklist_grants(db, user, body.checklist_asset_types, current_user.id)
     db.commit()
     db.refresh(user)
     log_action(
@@ -70,6 +90,8 @@ def create_user(
             "is_admin": body.is_admin,
             "can_trailers": body.can_trailers,
             "can_vehicles": body.can_vehicles,
+            "can_checklists": body.can_checklists,
+            "checklist_asset_types": body.checklist_asset_types,
         },
     )
     return user
@@ -126,6 +148,7 @@ def update_user(
         if body.is_admin:
             user.can_trailers = True
             user.can_vehicles = True
+            user.can_checklists = True
 
     if body.can_trailers is not None and not user.is_admin:
         user.can_trailers = body.can_trailers
@@ -133,11 +156,19 @@ def update_user(
     if body.can_vehicles is not None and not user.is_admin:
         user.can_vehicles = body.can_vehicles
 
+    if body.can_checklists is not None and not user.is_admin:
+        user.can_checklists = body.can_checklists
+
+    if body.checklist_asset_types is not None and not user.is_admin:
+        _sync_checklist_grants(db, user, body.checklist_asset_types, current_user.id)
+
     db.commit()
     db.refresh(user)
     log_action(db, current_user.id, "user_updated", "user", str(user_id), {
         "is_admin": user.is_admin,
         "can_trailers": user.can_trailers,
         "can_vehicles": user.can_vehicles,
+        "can_checklists": user.can_checklists,
+        "checklist_asset_types": user.checklist_asset_types,
     })
     return user

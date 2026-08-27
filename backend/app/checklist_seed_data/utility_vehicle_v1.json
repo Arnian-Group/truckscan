@@ -1,0 +1,113 @@
+{
+  "code": "VEH-CHK-01",
+  "name": "Checklist de Vehículos Utilitarios",
+  "asset_type": "utility_vehicle",
+  "revision": "00",
+  "retention_months": 12,
+  "response_type": "si_no_na",
+  "header_fields": [
+    { "key": "empresa", "label": "Empresa", "type": "text", "required": false },
+    { "key": "unidad_no_economico", "label": "Unidad / No. económico", "type": "text", "required": true },
+    { "key": "marca_modelo_anio", "label": "Marca / modelo / año", "type": "text", "required": false },
+    { "key": "placas", "label": "Placas", "type": "text", "required": true },
+    { "key": "fecha", "label": "Fecha", "type": "date", "required": true },
+    { "key": "hora", "label": "Hora", "type": "time", "required": true },
+    { "key": "kilometraje", "label": "Kilometraje", "type": "number", "required": true },
+    { "key": "conductor_responsable", "label": "Conductor / responsable", "type": "text", "required": true }
+  ],
+  "signature_roles": [
+    { "key": "conductor", "label": "Elaboró / conductor", "required": true },
+    { "key": "supervisor", "label": "Revisó / supervisor", "required": true },
+    { "key": "mantenimiento", "label": "Liberó mantenimiento (si aplica)", "required": false }
+  ],
+  "sections": [
+    {
+      "key": "documentacion_y_control", "label": "Documentación y control",
+      "items": [
+        { "key": "uv_01", "label": "Tarjeta de circulación vigente y disponible en la unidad", "criticality": "normal" },
+        { "key": "uv_02", "label": "Póliza / comprobante de seguro vigente", "criticality": "normal" },
+        { "key": "uv_03", "label": "Licencia de conducir vigente y acorde al tipo de vehículo", "criticality": "normal" },
+        { "key": "uv_04", "label": "Placas colocadas, legibles y sin daños", "criticality": "normal" },
+        { "key": "uv_05", "label": "Bitácora, identificación o resguardo de la unidad disponible", "criticality": "normal" }
+      ]
+    },
+    {
+      "key": "inspeccion_exterior", "label": "Inspección exterior",
+      "items": [
+        { "key": "uv_06", "label": "Carrocería sin golpes, daños o piezas sueltas que afecten la seguridad", "criticality": "normal" },
+        { "key": "uv_07", "label": "Parabrisas, cristales y espejos limpios, completos y sin daño crítico", "criticality": "normal" },
+        { "key": "uv_08", "label": "Puertas, cofre, cajuela y cerraduras funcionan correctamente", "criticality": "normal" },
+        { "key": "uv_09", "label": "Limpiaparabrisas y depósito de líquido funcionan correctamente", "criticality": "normal" },
+        { "key": "uv_10", "label": "No se observan fugas de aceite, combustible, anticongelante u otros fluidos", "criticality": "critico" }
+      ]
+    },
+    {
+      "key": "llantas_rodamiento", "label": "Llantas y sistema de rodamiento",
+      "items": [
+        { "key": "uv_11", "label": "Llantas con presión visual adecuada, sin deformaciones, cortes o desgaste excesivo", "criticality": "critico" },
+        { "key": "uv_12", "label": "Birlos / tuercas completos y sin señales de aflojamiento", "criticality": "critico" },
+        { "key": "uv_13", "label": "Llanta de refacción en condiciones de uso", "criticality": "normal" },
+        { "key": "uv_14", "label": "Gato, llave de cruz y herramienta básica disponibles", "criticality": "normal" }
+      ]
+    },
+    {
+      "key": "luces_electrico", "label": "Luces, señalización y sistema eléctrico",
+      "items": [
+        { "key": "uv_15", "label": "Faros delanteros: luces bajas y altas", "criticality": "critico" },
+        { "key": "uv_16", "label": "Direccionales delanteras y traseras", "criticality": "critico" },
+        { "key": "uv_17", "label": "Luces de freno y luces traseras", "criticality": "critico" },
+        { "key": "uv_18", "label": "Luces intermitentes de emergencia", "criticality": "normal" },
+        { "key": "uv_19", "label": "Luz de reversa y claxon", "criticality": "normal" },
+        { "key": "uv_20", "label": "Tablero sin alertas críticas; indicadores y medidores funcionan", "criticality": "normal" },
+        { "key": "uv_21", "label": "Batería firme, sin corrosión visible y con terminales protegidas", "criticality": "normal" }
+      ]
+    },
+    {
+      "key": "cabina_controles", "label": "Cabina y controles",
+      "items": [
+        { "key": "uv_22", "label": "Cinturones de seguridad completos y funcionales", "criticality": "critico" },
+        { "key": "uv_23", "label": "Asientos y cabeceras firmes; ajuste correcto del asiento del conductor", "criticality": "normal" },
+        { "key": "uv_24", "label": "Freno de servicio responde correctamente", "criticality": "critico" },
+        { "key": "uv_25", "label": "Freno de estacionamiento sostiene la unidad", "criticality": "critico" },
+        { "key": "uv_26", "label": "Dirección sin juego ni ruidos anormales", "criticality": "critico" },
+        { "key": "uv_27", "label": "Pedales y palanca de velocidades funcionan con normalidad", "criticality": "normal" },
+        { "key": "uv_28", "label": "Aire acondicionado / ventilación funcional (si aplica)", "criticality": "normal" },
+        { "key": "uv_29", "label": "Cabina limpia, ordenada y sin objetos sueltos que representen riesgo", "criticality": "normal" }
+      ]
+    },
+    {
+      "key": "motor_niveles", "label": "Motor y niveles",
+      "items": [
+        { "key": "uv_30", "label": "Nivel de aceite de motor dentro del rango recomendado", "criticality": "normal" },
+        { "key": "uv_31", "label": "Nivel de anticongelante / refrigerante adecuado (revisar con motor frío)", "criticality": "normal" },
+        { "key": "uv_32", "label": "Nivel de líquido de frenos adecuado", "criticality": "critico" },
+        { "key": "uv_33", "label": "Nivel de líquido de dirección hidráulica (cuando aplique)", "criticality": "normal" },
+        { "key": "uv_34", "label": "Combustible suficiente para la ruta asignada", "criticality": "normal" },
+        { "key": "uv_35", "label": "Motor enciende normalmente, sin humo, olor, vibración o ruido anormal", "criticality": "normal" }
+      ]
+    },
+    {
+      "key": "seguridad_emergencia", "label": "Equipo de seguridad y emergencia",
+      "items": [
+        { "key": "uv_36", "label": "Extintor vigente, cargado, asegurado y de fácil acceso", "criticality": "normal" },
+        { "key": "uv_37", "label": "Botiquín de primeros auxilios abastecido", "criticality": "normal" },
+        { "key": "uv_38", "label": "Triángulos / dispositivos reflejantes disponibles", "criticality": "normal" },
+        { "key": "uv_39", "label": "Chaleco reflejante disponible", "criticality": "normal" },
+        { "key": "uv_40", "label": "Linterna funcional", "criticality": "normal" },
+        { "key": "uv_41", "label": "Cables pasa corriente y herramienta básica", "criticality": "normal" },
+        { "key": "uv_42", "label": "Información de contacto para emergencias y reporte de accidentes", "criticality": "normal" }
+      ]
+    },
+    {
+      "key": "limpieza_carga_accesorios", "label": "Limpieza, carga y accesorios",
+      "items": [
+        { "key": "uv_43", "label": "Interior y exterior en condiciones aceptables de limpieza", "criticality": "normal" },
+        { "key": "uv_44", "label": "Área de carga limpia, sin objetos ajenos o materiales peligrosos no autorizados", "criticality": "normal" },
+        { "key": "uv_45", "label": "Carga distribuida, asegurada y dentro de la capacidad de la unidad", "criticality": "normal" },
+        { "key": "uv_46", "label": "Cinchos, correas, amarres o separadores en buen estado (cuando aplique)", "criticality": "normal" },
+        { "key": "uv_47", "label": "GPS, cámara, radio o dispositivo asignado funcionan (cuando aplique)", "criticality": "normal" },
+        { "key": "uv_48", "label": "Tarjeta / control de combustible disponible (cuando aplique)", "criticality": "normal" }
+      ]
+    }
+  ]
+}

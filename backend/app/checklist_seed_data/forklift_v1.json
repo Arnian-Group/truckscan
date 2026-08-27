@@ -1,0 +1,139 @@
+{
+  "code": "FOR-MC-RD-01",
+  "name": "Checklist de Revisión Diaria de Montacargas",
+  "asset_type": "forklift",
+  "revision": "00",
+  "retention_months": 12,
+  "response_type": "c_nc_na",
+  "source_reference": "NOM-006-STPS-2023",
+  "header_fields": [
+    { "key": "sucursal_area", "label": "Sucursal / Área", "type": "text", "required": true },
+    { "key": "fecha", "label": "Fecha", "type": "date", "required": true },
+    { "key": "turno", "label": "Turno", "type": "text", "required": true },
+    { "key": "no_economico", "label": "No. económico", "type": "text", "required": true },
+    { "key": "marca_serie", "label": "Marca / serie", "type": "text", "required": false },
+    { "key": "horometro", "label": "Horómetro", "type": "number", "required": true },
+    { "key": "operador", "label": "Operador", "type": "text", "required": true },
+    { "key": "no_empleado", "label": "No. empleado", "type": "text", "required": false },
+    { "key": "tipo_energia", "label": "Tipo de energía", "type": "select", "required": true,
+      "options": ["lp", "electrico", "diesel", "gasolina"] }
+  ],
+  "signature_roles": [
+    { "key": "operador", "label": "Firma del operador", "required": true },
+    { "key": "supervisor", "label": "Nombre y firma del supervisor", "required": true },
+    { "key": "mantenimiento", "label": "Firma de mantenimiento / liberación", "required": false }
+  ],
+  "sections": [
+    {
+      "key": "entorno_y_datos", "label": "Entorno y datos",
+      "items": [
+        { "key": "fk_01", "label": "Área alrededor del equipo", "criterion_text": "Sin personas, obstáculos, derrames ni materiales que impidan la inspección o salida segura.", "criticality": "critico" },
+        { "key": "fk_02", "label": "Ruta y zona de trabajo", "criterion_text": "Piso firme; pasillos, rampas, puertas y altura libre adecuados; sin riesgos evidentes.", "criticality": "critico" }
+      ]
+    },
+    {
+      "key": "estructura", "label": "Estructura",
+      "items": [
+        { "key": "fk_03", "label": "Horquillas", "criterion_text": "Sin grietas, deformaciones, desgaste excesivo, desnivel ni reparaciones improvisadas.", "criticality": "critico" },
+        { "key": "fk_04", "label": "Seguros de horquillas", "criterion_text": "Pasadores/seguros presentes, ajustados y funcionando.", "criticality": "critico" },
+        { "key": "fk_05", "label": "Carro portahorquillas y respaldo", "criterion_text": "Sin daño, piezas flojas, grietas ni deformaciones.", "criticality": "critico" },
+        { "key": "fk_06", "label": "Mástil, rodillos y guías", "criterion_text": "Sin daño, obstrucción, desgaste anormal ni juego excesivo.", "criticality": "critico" },
+        { "key": "fk_07", "label": "Cadenas y anclajes", "criterion_text": "Lubricadas, con tensión uniforme; sin eslabones dañados, corrosión o pasadores flojos.", "criticality": "critico" },
+        { "key": "fk_08", "label": "Cilindros y mangueras hidráulicas", "criterion_text": "Sin fugas, grietas, abultamientos, roces, conexiones flojas o daño.", "criticality": "critico" },
+        { "key": "fk_09", "label": "Contrapeso y chasis", "criterion_text": "Firmes, completos, sin golpes severos, fisuras o tornillería faltante.", "criticality": "critico" },
+        { "key": "fk_10", "label": "Techo protector", "criterion_text": "Firme, sin daño estructural, soldaduras rotas o piezas flojas.", "criticality": "critico" }
+      ]
+    },
+    {
+      "key": "ruedas", "label": "Ruedas",
+      "items": [
+        { "key": "fk_11", "label": "Llantas", "criterion_text": "Sin cortes, desprendimientos, objetos incrustados, desgaste extremo ni presión baja.", "criticality": "critico" },
+        { "key": "fk_12", "label": "Rines, birlos y tuercas", "criterion_text": "Completos, firmes, sin grietas, deformación ni marcas de aflojamiento.", "criticality": "critico" }
+      ]
+    },
+    {
+      "key": "puesto_operador", "label": "Puesto del operador",
+      "items": [
+        { "key": "fk_13", "label": "Asiento y ajuste", "criterion_text": "Firme, ajusta correctamente y sin daño que afecte la postura.", "criticality": "normal" },
+        { "key": "fk_14", "label": "Cinturón/sistema de retención", "criterion_text": "Completo, engancha, ajusta y retrae correctamente; sin cortes.", "criticality": "critico" },
+        { "key": "fk_15", "label": "Escalones y asideros", "criterion_text": "Limpios, firmes, completos y antideslizantes.", "criticality": "normal" },
+        { "key": "fk_16", "label": "Piso, pedales y compartimento", "criterion_text": "Limpios, secos, libres de objetos y con superficies antideslizantes.", "criticality": "critico" }
+      ]
+    },
+    {
+      "key": "identificacion", "label": "Identificación",
+      "items": [
+        { "key": "fk_17", "label": "Placa de capacidad", "criterion_text": "Legible, instalada y correspondiente al equipo y aditamentos.", "criticality": "critico" },
+        { "key": "fk_18", "label": "Etiquetas y advertencias", "criterion_text": "Presentes y legibles, incluidos puntos de pellizco y operación segura.", "criticality": "normal" }
+      ]
+    },
+    {
+      "key": "seguridad", "label": "Seguridad",
+      "items": [
+        { "key": "fk_19", "label": "Extintor, cuando aplique", "criterion_text": "Presente, accesible, asegurado, con carga vigente y sin daño.", "criticality": "normal" },
+        { "key": "fk_20", "label": "Espejos/cámara, cuando aplique", "criterion_text": "Limpios, firmes, bien orientados y funcionales.", "criticality": "normal" }
+      ]
+    },
+    {
+      "key": "niveles_y_fugas", "label": "Niveles y fugas",
+      "items": [
+        { "key": "fk_21", "label": "Piso debajo del equipo", "criterion_text": "Sin charcos ni señales de fuga de combustible, aceite, refrigerante o hidráulico.", "criticality": "critico" },
+        { "key": "fk_22", "label": "Aceite de motor", "criterion_text": "Nivel dentro del rango y sin contaminación visible; aplica a combustión.", "criticality": "normal", "energy_types": ["diesel", "gasolina"] },
+        { "key": "fk_23", "label": "Refrigerante", "criterion_text": "Nivel correcto con motor frío; depósito, tapa y mangueras sin fuga.", "criticality": "critico" },
+        { "key": "fk_24", "label": "Aceite hidráulico/transmisión", "criterion_text": "Nivel correcto conforme al fabricante; sin fuga o contaminación.", "criticality": "critico" }
+      ]
+    },
+    {
+      "key": "electrico", "label": "Eléctrico",
+      "items": [
+        { "key": "fk_25", "label": "Batería y sujeción", "criterion_text": "Batería fija; tapas, retenedor y compartimento completos; sin daño o corrosión severa.", "criticality": "critico" },
+        { "key": "fk_26", "label": "Cables, terminales y conector", "criterion_text": "Sin quemaduras, aislamiento roto, piezas flojas, calentamiento o daño.", "criticality": "critico" },
+        { "key": "fk_27", "label": "Electrolito, cuando sea verificable", "criterion_text": "Nivel adecuado; sin derrame. Usar EPP y seguir indicaciones del fabricante.", "criticality": "critico" },
+        { "key": "fk_28", "label": "Cargador y cable", "criterion_text": "Sin daño, clavijas expuestas, sobrecalentamiento o conexión improvisada.", "criticality": "critico" }
+      ]
+    },
+    {
+      "key": "gas_lp", "label": "Gas LP",
+      "items": [
+        { "key": "fk_29", "label": "Cilindro y abrazadera", "criterion_text": "Cilindro autorizado, bien orientado, asentado y firmemente asegurado.", "criticality": "critico", "energy_types": ["lp"] },
+        { "key": "fk_30", "label": "Válvula, manguera y conexiones", "criterion_text": "Sin olor, escarcha, fuga, daño, grietas ni conexiones flojas.", "criticality": "critico", "energy_types": ["lp"] }
+      ]
+    },
+    {
+      "key": "gasolina_diesel", "label": "Gasolina/Diésel",
+      "items": [
+        { "key": "fk_31", "label": "Tanque, tapa y líneas", "criterion_text": "Tapa instalada; sin derrame, humedad, olor intenso, fuga o líneas dañadas.", "criticality": "critico", "energy_types": ["diesel", "gasolina"] }
+      ]
+    },
+    {
+      "key": "arranque", "label": "Arranque",
+      "items": [
+        { "key": "fk_32", "label": "Freno de estacionamiento y neutral", "criterion_text": "Aplicado y selector en neutral antes de arrancar.", "criticality": "critico" },
+        { "key": "fk_33", "label": "Tablero e indicadores", "criterion_text": "Medidores y testigos realizan autoprueba; sin alarmas de falla activas.", "criticality": "critico" },
+        { "key": "fk_34", "label": "Motor/ruido/vibración/humo", "criterion_text": "Arranque normal; ralentí estable; sin ruido, vibración, olor o humo anormal.", "criticality": "critico" }
+      ]
+    },
+    {
+      "key": "prueba_funcional", "label": "Prueba funcional",
+      "items": [
+        { "key": "fk_35", "label": "Claxon", "criterion_text": "Audible y funciona al accionar.", "criticality": "critico" },
+        { "key": "fk_36", "label": "Alarma de reversa", "criterion_text": "Se activa al seleccionar reversa y es audible.", "criticality": "critico" },
+        { "key": "fk_37", "label": "Luces y torreta", "criterion_text": "Luces de trabajo, freno, reversa y torreta funcionan; lentes limpios.", "criticality": "normal" },
+        { "key": "fk_38", "label": "Dirección", "criterion_text": "Respuesta uniforme, sin juego excesivo, atoramiento o ruido anormal.", "criticality": "critico" },
+        { "key": "fk_39", "label": "Freno de servicio", "criterion_text": "Detiene el equipo en forma controlada, recta y sin recorrido excesivo.", "criticality": "critico" },
+        { "key": "fk_40", "label": "Freno de estacionamiento", "criterion_text": "Mantiene inmóvil el equipo en prueba segura conforme al procedimiento.", "criticality": "critico" },
+        { "key": "fk_41", "label": "Avance y reversa", "criterion_text": "Engranan suavemente; control de dirección y aceleración normal.", "criticality": "critico" },
+        { "key": "fk_42", "label": "Elevación y descenso", "criterion_text": "Movimiento suave, uniforme y controlado; sin caída, tirones o deriva.", "criticality": "critico" },
+        { "key": "fk_43", "label": "Inclinación y aditamentos", "criterion_text": "Funcionan en todo su recorrido sin fugas, golpes o movimiento irregular.", "criticality": "critico" },
+        { "key": "fk_44", "label": "Paro de emergencia/interbloqueos", "criterion_text": "Funcionan cuando el modelo los incluye.", "criticality": "critico" }
+      ]
+    },
+    {
+      "key": "operador_seccion", "label": "Operador",
+      "items": [
+        { "key": "fk_45", "label": "Autorización interna vigente", "criterion_text": "Operador capacitado, autorizado para el tipo de equipo y sin impedimento evidente.", "criticality": "critico" },
+        { "key": "fk_46", "label": "Equipo de protección personal", "criterion_text": "Calzado de seguridad, chaleco y demás EPP definido por el análisis de riesgos.", "criticality": "critico" }
+      ]
+    }
+  ]
+}

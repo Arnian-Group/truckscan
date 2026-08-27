@@ -24,6 +24,8 @@ class UserCreate(BaseModel):
     is_admin: bool = False
     can_trailers: bool = False
     can_vehicles: bool = False
+    can_checklists: bool = False
+    checklist_asset_types: List[str] = []
 
 
 class UserOut(BaseModel):
@@ -33,6 +35,8 @@ class UserOut(BaseModel):
     is_admin: bool = False
     can_trailers: bool = False
     can_vehicles: bool = False
+    can_checklists: bool = False
+    checklist_asset_types: List[str] = []
     role: str = "operator"
     is_active: bool
     created_at: datetime
@@ -41,14 +45,23 @@ class UserOut(BaseModel):
 
     @model_validator(mode="after")
     def compute_role(self) -> "UserOut":
+        # NOTE: the frontend's canTrailers() treats role=="operator" as implying
+        # trailer access (a pre-v2 holdover, back when "operator" meant exactly
+        # "trailers-only user") — so "operator" must only be assigned when
+        # can_trailers is actually true, or a checklists-only/no-access user would
+        # incorrectly show the trailers nav item despite can_trailers being False.
         if self.is_admin:
             self.role = "admin"
         elif self.can_trailers and self.can_vehicles:
             self.role = "multi"
         elif self.can_vehicles:
             self.role = "vehicle_agent"
-        else:
+        elif self.can_trailers:
             self.role = "operator"
+        elif self.can_checklists:
+            self.role = "checklist_agent"
+        else:
+            self.role = "operator"  # no module access at all — matches the pre-v2 default
         return self
 
 
@@ -186,6 +199,8 @@ class UserUpdate(BaseModel):
     is_admin: Optional[bool] = None
     can_trailers: Optional[bool] = None
     can_vehicles: Optional[bool] = None
+    can_checklists: Optional[bool] = None
+    checklist_asset_types: Optional[List[str]] = None  # None = leave unchanged, [] = revoke all
 
 
 class ChecklistUpdate(BaseModel):
@@ -345,3 +360,133 @@ class SharedLinkOut(BaseModel):
     entry_number: Optional[str] = None  # populated from inspection
 
     model_config = {"from_attributes": True}
+
+
+# Checklists (forklifts, utility vehicles, and future asset types)
+class ChecklistAssetTypeOut(BaseModel):
+    """One entry per known asset_type (derived from active templates), used to render
+    the admin permission checkboxes dynamically — adding a new checklist type never
+    requires a frontend code change here, just a new seeded template."""
+    asset_type: str
+    label: str
+
+
+class ChecklistAssetCreate(BaseModel):
+    asset_type: str
+    economic_number: str
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    serial: Optional[str] = None
+    plate: Optional[str] = None
+    energy_type: Optional[str] = None
+    ctpat_scope: bool = False
+
+
+class ChecklistAssetOut(BaseModel):
+    id: UUID
+    asset_type: str
+    economic_number: str
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    serial: Optional[str] = None
+    plate: Optional[str] = None
+    energy_type: Optional[str] = None
+    ctpat_scope: bool = False
+    qr_token: Optional[str] = None
+    is_active: bool = True
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ChecklistTemplateOut(BaseModel):
+    id: UUID
+    asset_type: str
+    code: str
+    name: str
+    revision: str
+    retention_months: int
+    response_type: str
+    source_reference: Optional[str] = None
+    header_fields: list
+    signature_roles: list
+    sections: list
+    is_active: bool = True
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ChecklistSubmissionCreate(BaseModel):
+    template_id: UUID
+    asset_id: Optional[UUID] = None
+    header_values: dict = {}
+
+
+class ChecklistSubmissionUpdate(BaseModel):
+    header_values: Optional[dict] = None
+    responses: Optional[list] = None
+    corrective_action: Optional[str] = None
+    corrective_responsible: Optional[str] = None
+
+
+class ChecklistSignatureIn(BaseModel):
+    role: str
+    name: str
+    signature_data: str  # base64 PNG, same convention as SignatureCanvas output
+
+
+class ChecklistLogEntryOut(BaseModel):
+    seq: int
+    event_type: str
+    actor_id: Optional[UUID] = None
+    entry_hash: str
+    server_recorded_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ChecklistSubmissionOut(BaseModel):
+    id: UUID
+    template_id: UUID
+    asset_id: Optional[UUID] = None
+    header_values: dict = {}
+    responses: list = []
+    classification: Optional[str] = None
+    folio: Optional[str] = None
+    status: str = "draft"
+    corrective_action: Optional[str] = None
+    corrective_responsible: Optional[str] = None
+    signatures: list = []
+    pdf_path: Optional[str] = None
+    is_deleted: bool = False
+    created_by: Optional[UUID] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    template: Optional[ChecklistTemplateOut] = None
+    asset: Optional[ChecklistAssetOut] = None
+    creator: Optional[UserOut] = None
+
+    model_config = {"from_attributes": True}
+
+
+class ChecklistSubmissionListItem(BaseModel):
+    id: UUID
+    template_id: UUID
+    asset_id: Optional[UUID] = None
+    classification: Optional[str] = None
+    folio: Optional[str] = None
+    status: str = "draft"
+    created_by: Optional[UUID] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    asset: Optional[ChecklistAssetOut] = None
+    template: Optional[ChecklistTemplateOut] = None
+
+    model_config = {"from_attributes": True}
+
+
+class ChecklistVerifyOut(BaseModel):
+    valid: bool
+    entries_checked: int
+    first_break_seq: Optional[int] = None

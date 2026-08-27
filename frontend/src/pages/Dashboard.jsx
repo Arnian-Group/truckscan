@@ -1,24 +1,32 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Truck, Car } from 'lucide-react'
-import { canTrailers, canVehicles } from '../lib/auth'
+import { Truck, Car, ClipboardCheck } from 'lucide-react'
+import { canTrailers, canVehicles, canChecklists } from '../lib/auth'
 import Layout from '../components/Layout'
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const hasTrailers = canTrailers()
-  const hasVehicles = canVehicles()
+
+  const modules = [
+    canTrailers() && {
+      key: 'trailers', to: '/trailers', title: 'CARGA', badge: 'TRAILERS',
+      subtitle: 'Trailer Load Documentation', icon: <Truck size={48} className="text-[#F5A623]" />,
+    },
+    canVehicles() && {
+      key: 'vehicles', to: '/vehicles', title: 'RECIBOS', badge: 'RECIBOS',
+      subtitle: 'Vehicle Receiving & Inspection', icon: <Car size={48} className="text-[#F5A623]" />,
+    },
+    canChecklists() && {
+      key: 'checklists', to: '/checklists', title: 'CHECKLISTS', badge: 'CHECKLISTS',
+      subtitle: 'Inspección de equipo y unidades', icon: <ClipboardCheck size={48} className="text-[#F5A623]" />,
+    },
+  ].filter(Boolean)
 
   useEffect(() => {
-    if (hasTrailers && !hasVehicles) {
-      navigate('/trailers', { replace: true })
-    } else if (hasVehicles && !hasTrailers) {
-      navigate('/vehicles', { replace: true })
-    }
-  }, [hasTrailers, hasVehicles, navigate])
+    if (modules.length === 1) navigate(modules[0].to, { replace: true })
+  }, [modules.length])
 
-  if (hasTrailers && !hasVehicles) return null
-  if (hasVehicles && !hasTrailers) return null
+  if (modules.length <= 1) return null
 
   return (
     <Layout title="TruckScan">
@@ -28,24 +36,10 @@ export default function Dashboard() {
         </div>
 
         <div className="w-full max-w-2xl grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {hasTrailers && (
-            <ModuleCard
-              icon={<Truck size={48} className="text-[#F5A623]" />}
-              title="CARGA"
-              subtitle="Trailer Load Documentation"
-              badge="TRAILERS"
-              onClick={() => navigate('/trailers')}
-            />
-          )}
-          {hasVehicles && (
-            <ModuleCard
-              icon={<Car size={48} className="text-[#F5A623]" />}
-              title="RECIBOS"
-              subtitle="Vehicle Receiving & Inspection"
-              badge="RECIBOS"
-              onClick={() => navigate('/vehicles')}
-            />
-          )}
+          {modules.map((m) => (
+            <ModuleCard key={m.key} icon={m.icon} title={m.title} subtitle={m.subtitle} badge={m.badge}
+                        onClick={() => navigate(m.to)} />
+          ))}
         </div>
 
         <p className="mt-12 text-white/15 text-xs font-mono">ARNIAN TRUCKSCAN</p>

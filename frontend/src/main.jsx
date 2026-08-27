@@ -16,9 +16,16 @@ import VehicleDetail from './pages/VehicleDetail'
 import MercanciaIntake from './pages/MercanciaIntake'
 import SharedView from './pages/SharedView'
 import ShareLinks from './pages/ShareLinks'
+import ChecklistList from './pages/ChecklistList'
+import ChecklistNew from './pages/ChecklistNew'
+import ChecklistNewAsset from './pages/ChecklistNewAsset'
+import ChecklistFill from './pages/ChecklistFill'
+import ChecklistSign from './pages/ChecklistSign'
+import ChecklistDetail from './pages/ChecklistDetail'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
 import VehicleRoute from './components/VehicleRoute'
+import ChecklistRoute from './components/ChecklistRoute'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -37,6 +44,14 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route path="/vehicles/:id/inspection" element={<VehicleInspection />} />
             <Route path="/vehicles/:id/mercancias" element={<MercanciaIntake />} />
             <Route path="/vehicles/:id" element={<VehicleDetail />} />
+          </Route>
+          <Route element={<ChecklistRoute />}>
+            <Route path="/checklists" element={<ChecklistList />} />
+            <Route path="/checklists/new" element={<ChecklistNew />} />
+            <Route path="/checklists/new/:templateId" element={<ChecklistNewAsset />} />
+            <Route path="/checklists/:id/fill" element={<ChecklistFill />} />
+            <Route path="/checklists/:id/sign" element={<ChecklistSign />} />
+            <Route path="/checklists/:id" element={<ChecklistDetail />} />
           </Route>
           <Route element={<AdminRoute />}>
             <Route path="/audit"  element={<AuditLog />} />

@@ -69,9 +69,22 @@ class User(Base):
     can_trailers = Column(Boolean, default=False, server_default='false')
     can_vehicles = Column(Boolean, default=False, server_default='false')
 
+    # Checklist module (v3): can_checklists gates the module itself; per-asset-type
+    # write access is a dynamic grant set (checklist_access below), not a fixed column
+    # per type — a new checklist type (e.g. "cajas") never needs a migration here.
+    can_checklists = Column(Boolean, default=False, server_default='false')
+
     trailers = relationship("Trailer", back_populates="creator")
     audit_logs = relationship("AuditLog", back_populates="user")
     vehicle_inspections = relationship("VehicleInspection", back_populates="creator")
+    checklist_access = relationship(
+        "ChecklistAssetTypeGrant", back_populates="user",
+        cascade="all, delete-orphan", foreign_keys="ChecklistAssetTypeGrant.user_id",
+    )
+
+    @property
+    def checklist_asset_types(self):
+        return [g.asset_type for g in self.checklist_access]
 
 
 class Trailer(Base):
@@ -278,3 +291,127 @@ class TrailerEditor(Base):
     trailer = relationship("Trailer", back_populates="editor_links")
     user = relationship("User", foreign_keys=[user_id])
     adder = relationship("User", foreign_keys=[created_by])
+
+
+class ChecklistSubmissionStatus(str, enum.Enum):
+    draft = "draft"
+    submitted = "submitted"
+    reviewed = "reviewed"
+    released = "released"
+
+
+class ChecklistAssetTypeGrant(Base):
+    """Per-user, per-asset-type write grant for the checklist module (e.g. a user
+    granted "forklift" and/or "utility_vehicle"). Deliberately a table, not a fixed
+    boolean column per type — granting access to a brand new checklist type (e.g. a
+    future "trailer_box" type) never requires a migration or a new dependency
+    function, only a row here. `can_checklists` on User still gates whether the
+    module is visible at all; this table gates which specific types within it."""
+    __tablename__ = "checklist_asset_type_grants"
+    __table_args__ = (UniqueConstraint("user_id", "asset_type", name="uq_checklist_grant"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    asset_type = Column(String(50), nullable=False)
+    granted_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+    user = relationship("User", back_populates="checklist_access", foreign_keys=[user_id])
+    granter = relationship("User", foreign_keys=[granted_by])
+
+
+class ChecklistAsset(Base):
+    """Physical unit registry (forklifts, utility vehicles, and future asset types).
+    Deliberately unrelated to VehicleInspection/VehicleType, which cover customer
+    vehicle receiving, not equipment safety inspection."""
+    __tablename__ = "checklist_assets"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    asset_type = Column(String(50), nullable=False, index=True)  # "forklift" | "utility_vehicle" | ...
+    economic_number = Column(String(50), nullable=False)
+    brand = Column(String(100), nullable=True)
+    model = Column(String(100), nullable=True)
+    serial = Column(String(100), nullable=True)
+    plate = Column(String(50), nullable=True)
+    energy_type = Column(String(20), nullable=True)  # forklift-specific: lp/electrico/diesel/gasolina
+    ctpat_scope = Column(Boolean, default=False, server_default='false', nullable=False)
+    qr_token = Column(String(64), unique=True, nullable=True, index=True)
+    is_active = Column(Boolean, default=True, server_default='true', nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class ChecklistTemplate(Base):
+    """Versioned checklist definition. Never edited in place once it has submissions —
+    changes create a new revision row instead, so historical submissions keep their
+    own frozen template_snapshot regardless of later template edits."""
+    __tablename__ = "checklist_templates"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    asset_type = Column(String(50), nullable=False, index=True)
+    code = Column(String(50), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    revision = Column(String(10), nullable=False, default="00")
+    retention_months = Column(Integer, nullable=False, default=12)
+    response_type = Column(String(20), nullable=False)  # "c_nc_na" | "si_no_na"
+    source_reference = Column(String(100), nullable=True)  # e.g. "NOM-006-STPS-2023"
+    header_fields = Column(JSON, nullable=False)
+    signature_roles = Column(JSON, nullable=False)
+    sections = Column(JSON, nullable=False)
+    is_active = Column(Boolean, default=True, server_default='true', nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
+class ChecklistSubmission(Base):
+    __tablename__ = "checklist_submissions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    template_id = Column(UUID(as_uuid=True), ForeignKey("checklist_templates.id"), nullable=False)
+    template_snapshot = Column(JSON, nullable=True)  # frozen at submit time
+    asset_id = Column(UUID(as_uuid=True), ForeignKey("checklist_assets.id"), nullable=True)
+    header_values = Column(JSON, nullable=False, default=dict)
+    responses = Column(JSON, nullable=False, default=list)  # [{item_key, result, observation, photos}]
+    classification = Column(String(50), nullable=True)
+    folio = Column(String(20), nullable=True, unique=True, index=True)
+    status = Column(String(20), nullable=False, default=ChecklistSubmissionStatus.draft.value)
+    corrective_action = Column(Text, nullable=True)
+    corrective_responsible = Column(String(255), nullable=True)
+    signatures = Column(JSON, nullable=False, default=list)  # [{role, name, sig_hash, signed_at}]
+    pdf_path = Column(String(500), nullable=True)
+    is_deleted = Column(Boolean, default=False, server_default='false', nullable=False)
+
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    template = relationship("ChecklistTemplate")
+    asset = relationship("ChecklistAsset")
+    creator = relationship("User", foreign_keys=[created_by])
+    log_entries = relationship(
+        "ChecklistLogEntry", back_populates="submission",
+        order_by="ChecklistLogEntry.seq", cascade="all, delete-orphan",
+    )
+
+
+class ChecklistLogEntry(Base):
+    """Tamper-evident hash chain, scoped per submission (not a single global chain —
+    see plan notes: a submission's events are only ever produced sequentially by the
+    one device/session that owns it, so a per-submission chain avoids needing a strict
+    cross-device write order for offline-filled checklists synced later)."""
+    __tablename__ = "checklist_log_entries"
+    __table_args__ = (UniqueConstraint("submission_id", "seq", name="uq_checklist_log_seq"),)
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    submission_id = Column(UUID(as_uuid=True), ForeignKey("checklist_submissions.id"), nullable=False, index=True)
+    seq = Column(Integer, nullable=False)
+    event_type = Column(String(30), nullable=False)
+    actor_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    payload = Column(JSON, nullable=False, default=dict)
+    payload_hash = Column(String(64), nullable=False)
+    prev_hash = Column(String(64), nullable=False)
+    entry_hash = Column(String(64), nullable=False)
+    client_created_at = Column(DateTime(timezone=True), nullable=True)
+    server_recorded_at = Column(DateTime(timezone=True), default=utcnow)
+
+    submission = relationship("ChecklistSubmission", back_populates="log_entries")
+    actor = relationship("User", foreign_keys=[actor_id])
