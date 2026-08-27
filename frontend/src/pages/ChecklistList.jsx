@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, ClipboardCheck, RefreshCw, ChevronLeft, ChevronRight, Wrench, ShieldCheck, ShieldAlert, AlertTriangle } from 'lucide-react'
+import { Plus, ClipboardCheck, RefreshCw, ChevronLeft, ChevronRight, Wrench, ShieldCheck, ShieldAlert, AlertTriangle, Trash2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import api from '../lib/api'
-import { isAdmin } from '../lib/auth'
+import { isAdmin, getUser } from '../lib/auth'
 
 const ASSET_TYPE_ICON = { forklift: '🏗️', utility_vehicle: '🚙' }
 
@@ -40,39 +40,60 @@ function unitLabel(sub) {
   return hv.no_economico || hv.unidad_no_economico || 'Sin unidad'
 }
 
-function SubmissionCard({ sub, onClick }) {
+function canDeleteSubmission(sub, me) {
+  if (isAdmin()) return true
+  return sub.status === 'draft' && me && String(sub.created_by) === String(me.id)
+}
+
+function SubmissionCard({ sub, onClick, onDelete, confirmingDelete }) {
   const st = STATUS_LABELS[sub.status] || STATUS_LABELS.draft
   const cls = sub.classification ? classificationGroup(sub.classification) : null
+  const me = getUser()
+  const deletable = canDeleteSubmission(sub, me)
   return (
-    <motion.div
-      onClick={onClick}
-      whileTap={{ scale: 0.98 }}
-      className={`w-full bg-[#161b27] border border-white/10 border-l-4 ${cls ? cls.border : 'border-l-white/10'} p-4 text-left hover:border-[#F5A623]/40 active:scale-98 transition-all cursor-pointer`}
-    >
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-sm leading-none shrink-0">{ASSET_TYPE_ICON[sub.template?.asset_type] || <ClipboardCheck size={15} className="text-[#F5A623]" />}</span>
-            <span className="font-mono font-bold text-sm truncate">{sub.template?.name || 'Checklist'}</span>
+    <div className="relative">
+      <motion.div
+        onClick={onClick}
+        whileTap={{ scale: 0.98 }}
+        className={`w-full bg-[#161b27] border border-white/10 border-l-4 ${cls ? cls.border : 'border-l-white/10'} p-4 text-left hover:border-[#F5A623]/40 active:scale-98 transition-all cursor-pointer`}
+      >
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-sm leading-none shrink-0">{ASSET_TYPE_ICON[sub.template?.asset_type] || <ClipboardCheck size={15} className="text-[#F5A623]" />}</span>
+              <span className="font-mono font-bold text-sm truncate">{sub.template?.name || 'Checklist'}</span>
+            </div>
+            <p className="text-white/70 text-sm truncate">{unitLabel(sub)}</p>
           </div>
-          <p className="text-white/70 text-sm truncate">{unitLabel(sub)}</p>
-        </div>
-        <div className="flex flex-col items-end gap-1 shrink-0">
-          <span className={`font-mono text-[10px] font-bold px-2 py-0.5 border uppercase ${st.color}`}>
-            {st.label}
-          </span>
-          {cls && (
-            <span className={`font-mono text-[10px] font-bold px-2 py-0.5 border uppercase flex items-center gap-1 ${cls.chip}`}>
-              <cls.icon size={10} /> {cls.label}
+          <div className={`flex flex-col items-end gap-1 shrink-0 ${deletable ? 'mr-9' : ''}`}>
+            <span className={`font-mono text-[10px] font-bold px-2 py-0.5 border uppercase ${st.color}`}>
+              {st.label}
             </span>
-          )}
+            {cls && (
+              <span className={`font-mono text-[10px] font-bold px-2 py-0.5 border uppercase flex items-center gap-1 ${cls.chip}`}>
+                <cls.icon size={10} /> {cls.label}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
-      <div className="flex justify-between text-xs text-white/25 font-mono mt-2">
-        <span className="truncate">{sub.folio || '—'}</span>
-        <span className="shrink-0">{new Date(sub.created_at).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}</span>
-      </div>
-    </motion.div>
+        <div className="flex justify-between text-xs text-white/25 font-mono mt-2">
+          <span className="truncate">{sub.folio || '—'}</span>
+          <span className="shrink-0">{new Date(sub.created_at).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' })}</span>
+        </div>
+      </motion.div>
+      {deletable && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(sub.id) }}
+          className={`absolute top-3 right-3 min-w-[36px] min-h-[36px] flex items-center justify-center transition-all ${
+            confirmingDelete
+              ? 'bg-red-500/20 border border-red-500/60 text-red-400 px-2 text-[9px] font-mono font-bold gap-1'
+              : 'text-white/20 hover:text-red-400 hover:bg-red-400/10'
+          }`}
+        >
+          {confirmingDelete ? <><Trash2 size={11} />¿OK?</> : <Trash2 size={14} />}
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -104,6 +125,7 @@ export default function ChecklistList() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [counts, setCounts] = useState({ draft: 0, by_classification: {} })
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
 
   useEffect(() => {
     api.get('/checklists/templates').then(({ data }) => {
@@ -139,6 +161,23 @@ export default function ChecklistList() {
       console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleDelete(id) {
+    if (confirmDeleteId !== id) {
+      setConfirmDeleteId(id)
+      setTimeout(() => setConfirmDeleteId((c) => (c === id ? null : c)), 4000)
+      return
+    }
+    try {
+      await api.delete(`/checklists/submissions/${id}`)
+      setItems((prev) => prev.filter((i) => i.id !== id))
+      setTotal((prev) => prev - 1)
+      setConfirmDeleteId(null)
+      loadCounts(assetTypeFilter)
+    } catch (err) {
+      alert(err.response?.data?.detail || 'No se pudo eliminar')
     }
   }
 
@@ -250,6 +289,8 @@ export default function ChecklistList() {
               key={sub.id}
               sub={sub}
               onClick={() => navigate(sub.status === 'draft' ? `/checklists/${sub.id}/fill` : `/checklists/${sub.id}`)}
+              onDelete={handleDelete}
+              confirmingDelete={confirmDeleteId === sub.id}
             />
           ))
         )}

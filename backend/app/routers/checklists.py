@@ -792,9 +792,17 @@ def get_submission_pdf(
 def delete_submission(
     submission_id: uuid.UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_checklist_agent),
 ):
     sub = _get_submission(db, submission_id)
+    _require_asset_type_access(current_user, sub.template.asset_type)
+    # A draft is a work in progress, not yet part of the compliance record — its own
+    # creator can clean up a mistake without needing an admin. Anything already
+    # submitted+ is part of the hash-chained audit trail and only an admin removes it.
+    is_own_draft = sub.status == ChecklistSubmissionStatus.draft.value and str(sub.created_by) == str(current_user.id)
+    if not (current_user.is_admin or is_own_draft):
+        raise HTTPException(status_code=403, detail="Solo un administrador puede eliminar un checklist ya enviado")
     sub.is_deleted = True
     db.commit()
-    log_action(db, current_user.id, "checklist_submission_deleted", "checklist_submission", str(submission_id))
+    log_action(db, current_user.id, "checklist_submission_deleted", "checklist_submission", str(submission_id),
+               {"status": sub.status})
