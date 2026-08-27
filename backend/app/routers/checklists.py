@@ -7,6 +7,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request, UploadFile, File, Form
 from fastapi.responses import FileResponse, JSONResponse, Response
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
@@ -311,10 +312,37 @@ def get_asset_qr_label(
 
 # ── submissions ──────────────────────────────────────────────────────────────
 
+SORT_OPTIONS = {
+    "recent": lambda: ChecklistSubmission.created_at.desc(),
+    "oldest": lambda: ChecklistSubmission.created_at.asc(),
+    "folio": lambda: ChecklistSubmission.folio.desc().nulls_last(),
+    "unit": lambda: ChecklistAsset.economic_number.asc().nulls_last(),
+}
+
+
+def _apply_submission_filters(q, current_user, asset_type, status, classification):
+    if asset_type:
+        _require_asset_type_access(current_user, asset_type)
+        q = q.filter(ChecklistTemplate.asset_type == asset_type)
+    elif not current_user.is_admin:
+        q = q.filter(ChecklistTemplate.asset_type.in_(current_user.checklist_asset_types))
+    if status:
+        q = q.filter(ChecklistSubmission.status == status)
+    if classification:
+        # Comma-separated: the two templates use different classification strings
+        # for the same semantic bucket (e.g. NO_OPERAR vs NO_APTO), so the frontend
+        # groups them into one filter chip and passes all matching values at once.
+        values = [v for v in classification.split(",") if v]
+        q = q.filter(ChecklistSubmission.classification.in_(values))
+    return q
+
+
 @router.get("/submissions", response_model=PaginatedResponse)
 def list_submissions(
     asset_type: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    classification: Optional[str] = Query(None),
+    sort: str = Query("recent"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -324,18 +352,14 @@ def list_submissions(
         db.query(ChecklistSubmission)
         .options(joinedload(ChecklistSubmission.template), joinedload(ChecklistSubmission.asset))
         .join(ChecklistTemplate, ChecklistSubmission.template_id == ChecklistTemplate.id)
+        .outerjoin(ChecklistAsset, ChecklistSubmission.asset_id == ChecklistAsset.id)
         .filter(ChecklistSubmission.is_deleted == False)
     )
-    if asset_type:
-        _require_asset_type_access(current_user, asset_type)
-        q = q.filter(ChecklistTemplate.asset_type == asset_type)
-    elif not current_user.is_admin:
-        q = q.filter(ChecklistTemplate.asset_type.in_(current_user.checklist_asset_types))
-    if status:
-        q = q.filter(ChecklistSubmission.status == status)
+    q = _apply_submission_filters(q, current_user, asset_type, status, classification)
     total = q.count()
+    order_by = SORT_OPTIONS.get(sort, SORT_OPTIONS["recent"])()
     items = (
-        q.order_by(ChecklistSubmission.created_at.desc())
+        q.order_by(order_by, ChecklistSubmission.created_at.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
         .all()
@@ -346,6 +370,33 @@ def list_submissions(
         "page": page,
         "page_size": page_size,
     }
+
+
+# NOTE: declared before "/submissions/{submission_id}" for the same reason as the
+# "/assets/qr-sheet" ordering fix above — FastAPI matches by declaration order.
+@router.get("/submissions/counts")
+def get_submission_counts(
+    asset_type: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_checklist_agent),
+):
+    """Quick-glance counts for the list header: how many are still drafts, and how
+    many of each classification — lets an operator/supervisor spot at a glance how
+    many units are flagged NO_OPERAR/NO_APTO without paging through the list."""
+    base = (
+        db.query(ChecklistSubmission)
+        .join(ChecklistTemplate, ChecklistSubmission.template_id == ChecklistTemplate.id)
+        .filter(ChecklistSubmission.is_deleted == False)
+    )
+    base = _apply_submission_filters(base, current_user, asset_type, None, None)
+    draft = base.filter(ChecklistSubmission.status == ChecklistSubmissionStatus.draft.value).count()
+    rows = (
+        base.filter(ChecklistSubmission.classification.isnot(None))
+        .with_entities(ChecklistSubmission.classification, func.count())
+        .group_by(ChecklistSubmission.classification)
+        .all()
+    )
+    return {"draft": draft, "by_classification": {c: n for c, n in rows}}
 
 
 @router.post("/submissions", response_model=ChecklistSubmissionOut, status_code=201)

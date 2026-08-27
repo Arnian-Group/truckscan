@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, ClipboardCheck, RefreshCw, ChevronLeft, ChevronRight, Wrench } from 'lucide-react'
+import { Plus, ClipboardCheck, RefreshCw, ChevronLeft, ChevronRight, Wrench, ShieldCheck, ShieldAlert, AlertTriangle } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import api from '../lib/api'
 import { isAdmin } from '../lib/auth'
+
+const ASSET_TYPE_ICON = { forklift: '🏗️', utility_vehicle: '🚙' }
 
 const STATUS_LABELS = {
   draft:     { label: 'BORRADOR',  color: 'text-[#F5A623] bg-[#F5A62322] border-[#F5A62340]' },
@@ -13,13 +15,24 @@ const STATUS_LABELS = {
   released:  { label: 'LIBERADO',  color: 'text-[#22C55E] bg-[#22C55E22] border-[#22C55E40]' },
 }
 
-const CLASSIFICATION_LABELS = {
-  APTO: { label: 'APTO', color: 'text-[#22C55E]' },
-  OPERAR_CON_OBSERVACIONES: { label: 'CON OBSERVACIONES', color: 'text-[#F5A623]' },
-  APTO_CON_OBSERVACIONES: { label: 'CON OBSERVACIONES', color: 'text-[#F5A623]' },
-  NO_OPERAR: { label: 'NO OPERAR', color: 'text-red-400' },
-  NO_APTO: { label: 'NO APTO', color: 'text-red-400' },
+// The two templates use different classification strings for the same semantic
+// outcome (NO_OPERAR vs NO_APTO, etc.) — grouped here into one filter/stat/border
+// per bucket so montacargas and utilitarios read the same way at a glance.
+const CLASSIFICATION_GROUPS = [
+  { key: 'apto', label: 'APTO', values: ['APTO'], icon: ShieldCheck, text: 'text-[#22C55E]', chip: 'text-[#22C55E] bg-[#22C55E15] border-[#22C55E40]', border: 'border-l-[#22C55E]' },
+  { key: 'obs', label: 'CON OBSERVACIONES', values: ['OPERAR_CON_OBSERVACIONES', 'APTO_CON_OBSERVACIONES'], icon: AlertTriangle, text: 'text-[#F5A623]', chip: 'text-[#F5A623] bg-[#F5A62315] border-[#F5A62340]', border: 'border-l-[#F5A623]' },
+  { key: 'no_apto', label: 'NO APTO', values: ['NO_OPERAR', 'NO_APTO'], icon: ShieldAlert, text: 'text-red-400', chip: 'text-red-400 bg-red-400/10 border-red-400/40', border: 'border-l-red-400' },
+]
+function classificationGroup(classification) {
+  return CLASSIFICATION_GROUPS.find((g) => g.values.includes(classification))
 }
+
+const SORT_OPTIONS = [
+  { value: 'recent', label: 'MÁS RECIENTES' },
+  { value: 'oldest', label: 'MÁS ANTIGUOS' },
+  { value: 'folio', label: 'FOLIO' },
+  { value: 'unit', label: 'UNIDAD' },
+]
 
 function unitLabel(sub) {
   if (sub.asset) return `${sub.asset.economic_number}${sub.asset.brand ? ' · ' + sub.asset.brand : ''}`
@@ -29,25 +42,31 @@ function unitLabel(sub) {
 
 function SubmissionCard({ sub, onClick }) {
   const st = STATUS_LABELS[sub.status] || STATUS_LABELS.draft
-  const cls = sub.classification ? CLASSIFICATION_LABELS[sub.classification] : null
+  const cls = sub.classification ? classificationGroup(sub.classification) : null
   return (
     <motion.div
       onClick={onClick}
       whileTap={{ scale: 0.98 }}
-      className="w-full bg-[#161b27] border border-white/10 p-4 text-left hover:border-[#F5A623]/40 active:scale-98 transition-all cursor-pointer"
+      className={`w-full bg-[#161b27] border border-white/10 border-l-4 ${cls ? cls.border : 'border-l-white/10'} p-4 text-left hover:border-[#F5A623]/40 active:scale-98 transition-all cursor-pointer`}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <ClipboardCheck size={15} className="text-[#F5A623] shrink-0" />
+            <span className="text-sm leading-none shrink-0">{ASSET_TYPE_ICON[sub.template?.asset_type] || <ClipboardCheck size={15} className="text-[#F5A623]" />}</span>
             <span className="font-mono font-bold text-sm truncate">{sub.template?.name || 'Checklist'}</span>
           </div>
           <p className="text-white/70 text-sm truncate">{unitLabel(sub)}</p>
-          {cls && <p className={`text-xs font-mono font-bold ${cls.color}`}>{cls.label}</p>}
         </div>
-        <span className={`font-mono text-[10px] font-bold px-2 py-0.5 border uppercase shrink-0 ${st.color}`}>
-          {st.label}
-        </span>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className={`font-mono text-[10px] font-bold px-2 py-0.5 border uppercase ${st.color}`}>
+            {st.label}
+          </span>
+          {cls && (
+            <span className={`font-mono text-[10px] font-bold px-2 py-0.5 border uppercase flex items-center gap-1 ${cls.chip}`}>
+              <cls.icon size={10} /> {cls.label}
+            </span>
+          )}
+        </div>
       </div>
       <div className="flex justify-between text-xs text-white/25 font-mono mt-2">
         <span className="truncate">{sub.folio || '—'}</span>
@@ -57,21 +76,62 @@ function SubmissionCard({ sub, onClick }) {
   )
 }
 
+function StatChip({ active, onClick, icon, label, count, color }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1.5 px-3 py-1.5 border text-xs font-mono font-bold uppercase tracking-wider transition-colors min-h-[36px] whitespace-nowrap flex-shrink-0 ${
+        active ? `${color} border-current` : 'text-white/40 border-white/10 hover:text-white'
+      }`}
+    >
+      {icon}{label}
+      <span className={`px-1.5 ${active ? 'bg-black/20' : 'bg-white/10'}`}>{count}</span>
+    </button>
+  )
+}
+
 const PAGE_SIZE = 20
 
 export default function ChecklistList() {
   const navigate = useNavigate()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
+  const [assetTypes, setAssetTypes] = useState([])
+  const [assetTypeFilter, setAssetTypeFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [classificationFilter, setClassificationFilter] = useState('') // group key
+  const [sort, setSort] = useState('recent')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
+  const [counts, setCounts] = useState({ draft: 0, by_classification: {} })
 
-  async function load(p = page, filter = statusFilter) {
+  useEffect(() => {
+    api.get('/checklists/templates').then(({ data }) => {
+      const seen = new Map()
+      for (const t of data) if (!seen.has(t.asset_type)) seen.set(t.asset_type, t.name.split(' ').slice(-1)[0])
+      setAssetTypes([...seen.entries()].map(([asset_type, label]) => ({ asset_type, label })))
+    }).catch(console.error)
+  }, [])
+
+  async function loadCounts(assetType) {
+    try {
+      const { data } = await api.get('/checklists/submissions/counts', { params: assetType ? { asset_type: assetType } : {} })
+      setCounts(data)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  async function load(p, filters) {
     setLoading(true)
     try {
-      const params = { page: p, page_size: PAGE_SIZE }
-      if (filter) params.status = filter
+      const params = { page: p, page_size: PAGE_SIZE, sort: filters.sort }
+      if (filters.assetType) params.asset_type = filters.assetType
+      if (filters.status) params.status = filters.status
+      if (filters.classification) {
+        const group = CLASSIFICATION_GROUPS.find((g) => g.key === filters.classification)
+        if (group) params.classification = group.values.join(',')
+      }
       const { data } = await api.get('/checklists/submissions', { params })
       setItems(data?.items ?? [])
       setTotal(data?.total ?? 0)
@@ -82,13 +142,63 @@ export default function ChecklistList() {
     }
   }
 
-  useEffect(() => { setPage(1); load(1, statusFilter) }, [statusFilter])
-  useEffect(() => { load(page, statusFilter) }, [page])
+  const filters = { assetType: assetTypeFilter, status: statusFilter, classification: classificationFilter, sort }
+  useEffect(() => { setPage(1); load(1, filters); loadCounts(assetTypeFilter) }, [assetTypeFilter, statusFilter, classificationFilter, sort])
+  useEffect(() => { load(page, filters) }, [page])
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
+  const obsCount = (counts.by_classification?.OPERAR_CON_OBSERVACIONES || 0) + (counts.by_classification?.APTO_CON_OBSERVACIONES || 0)
+  const noAptoCount = (counts.by_classification?.NO_OPERAR || 0) + (counts.by_classification?.NO_APTO || 0)
+  const aptoCount = counts.by_classification?.APTO || 0
 
   return (
     <Layout title="Checklists">
+      {/* Quick-glance stats — tap to filter by result */}
+      <div className="px-4 py-3 flex gap-2 border-b border-white/5 overflow-x-auto">
+        <StatChip
+          active={statusFilter === 'draft'} onClick={() => setStatusFilter(statusFilter === 'draft' ? '' : 'draft')}
+          icon={<ClipboardCheck size={13} />} label="Borrador" count={counts.draft || 0} color="text-[#F5A623]"
+        />
+        <StatChip
+          active={classificationFilter === 'apto'} onClick={() => setClassificationFilter(classificationFilter === 'apto' ? '' : 'apto')}
+          icon={<ShieldCheck size={13} />} label="Apto" count={aptoCount} color="text-[#22C55E]"
+        />
+        <StatChip
+          active={classificationFilter === 'obs'} onClick={() => setClassificationFilter(classificationFilter === 'obs' ? '' : 'obs')}
+          icon={<AlertTriangle size={13} />} label="Con obs." count={obsCount} color="text-[#F5A623]"
+        />
+        <StatChip
+          active={classificationFilter === 'no_apto'} onClick={() => setClassificationFilter(classificationFilter === 'no_apto' ? '' : 'no_apto')}
+          icon={<ShieldAlert size={13} />} label="No apto" count={noAptoCount} color="text-red-400"
+        />
+      </div>
+
+      {/* Asset type */}
+      {assetTypes.length > 1 && (
+        <div className="px-4 py-2 flex gap-1.5 border-b border-white/5 overflow-x-auto">
+          <button
+            onClick={() => setAssetTypeFilter('')}
+            className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider transition-colors min-h-[30px] whitespace-nowrap flex-shrink-0 ${
+              assetTypeFilter === '' ? 'bg-white/15 text-white border border-white/30' : 'text-white/30 border border-white/8 hover:text-white/60'
+            }`}
+          >
+            TODOS LOS TIPOS
+          </button>
+          {assetTypes.map((t) => (
+            <button
+              key={t.asset_type}
+              onClick={() => setAssetTypeFilter(t.asset_type)}
+              className={`px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-wider transition-colors min-h-[30px] whitespace-nowrap flex-shrink-0 border ${
+                assetTypeFilter === t.asset_type ? 'bg-white/15 text-white border-white/30' : 'text-white/30 border-white/8 hover:text-white/60'
+              }`}
+            >
+              {ASSET_TYPE_ICON[t.asset_type] || ''} {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Status + sort */}
       <div className="px-4 py-3 flex gap-2 border-b border-white/5 overflow-x-auto">
         {['', 'draft', 'submitted', 'reviewed', 'released'].map((f) => (
           <button
@@ -101,17 +211,24 @@ export default function ChecklistList() {
             {f === '' ? 'TODOS' : STATUS_LABELS[f]?.label || f}
           </button>
         ))}
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+          className="ml-auto bg-[#1e2535] border border-white/10 text-white text-xs font-mono font-bold px-2 min-h-[36px] flex-shrink-0 focus:outline-none focus:border-[#F5A623]"
+        >
+          {SORT_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
         {isAdmin() && (
           <button
             onClick={() => navigate('/checklists/assets')}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono text-white/50 border border-white/10 hover:text-white hover:border-white/30 transition-colors min-h-[36px] whitespace-nowrap flex-shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono text-white/50 border border-white/10 hover:text-white hover:border-white/30 transition-colors min-h-[36px] whitespace-nowrap flex-shrink-0"
           >
             <Wrench size={13} /> Unidades
           </button>
         )}
         <button
-          onClick={() => load(page, statusFilter)}
-          className={`min-h-[36px] min-w-[36px] flex items-center justify-center text-white/40 hover:text-white flex-shrink-0 ${isAdmin() ? '' : 'ml-auto'}`}
+          onClick={() => { load(page, filters); loadCounts(assetTypeFilter) }}
+          className="min-h-[36px] min-w-[36px] flex items-center justify-center text-white/40 hover:text-white flex-shrink-0"
         >
           <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
         </button>
