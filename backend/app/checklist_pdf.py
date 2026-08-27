@@ -1,9 +1,11 @@
 import base64
 import os
 from io import BytesIO
+from typing import Optional
 
 from .config import settings
 from .models import ChecklistLogEntry
+from .qr import generate_qr_png_bytes
 from .routers.vehicles import _get_logo_path, _make_logo_image, _NAVY, _NAVY_LIGHT, _GRAY_LINE
 
 RESULT_LABELS = {
@@ -20,7 +22,7 @@ CLASSIFICATION_LABELS = {
 }
 
 
-def generate_checklist_pdf(sub) -> str:
+def generate_checklist_pdf(sub, base_url: Optional[str] = None) -> str:
     from reportlab.lib.pagesizes import letter
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
@@ -203,17 +205,97 @@ def generate_checklist_pdf(sub) -> str:
     last_entry = (
         sub.log_entries[-1] if sub.log_entries else None
     )
-    verify_code = last_entry.entry_hash[:16] if last_entry else "—"
+    verify_code = last_entry.entry_hash[:16] if last_entry else None
     retention = snapshot.get("retention_months", 12)
     ref = snapshot.get("source_reference")
     footer_lines = [
         f"Documento controlado · Código: {snapshot.get('code', '—')} · Revisión: {snapshot.get('revision', '—')} · "
         f"Conservación sugerida: {retention} meses",
-        f"Código de verificación de integridad: {verify_code} (checklist_submissions/{sub.id})",
+        f"Código de verificación de integridad: {verify_code or '—'} (checklist_submissions/{sub.id})",
     ]
     if ref:
         footer_lines.append(f"Referencia normativa: {ref}")
-    story.append(Paragraph("<br/>".join(footer_lines), tiny_style))
+
+    verify_url = f"{base_url}/checklists/verify/{sub.id}?h={verify_code}" if (base_url and verify_code) else None
+    if verify_url:
+        footer_lines.append("Escanee el código QR para verificar este documento en línea.")
+        qr_bytes = generate_qr_png_bytes(verify_url, box_size=3)
+        qr_img = Image(BytesIO(qr_bytes), width=0.7 * inch, height=0.7 * inch)
+        footer_table = Table(
+            [[qr_img, Paragraph("<br/>".join(footer_lines), tiny_style)]],
+            colWidths=[0.8 * inch, 6.0 * inch],
+        )
+        footer_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (0, -1), 8),
+        ]))
+        story.append(footer_table)
+    else:
+        story.append(Paragraph("<br/>".join(footer_lines), tiny_style))
 
     doc.build(story)
     return f"/uploads/pdfs/{sub.id}_checklist.pdf"
+
+
+ASSET_TYPE_LABELS = {"forklift": "Montacargas", "utility_vehicle": "Vehículo utilitario"}
+
+
+def generate_asset_qr_label_pdf(assets: list) -> bytes:
+    """One printable label per asset (economic number, brand/model, QR encoding the
+    raw qr_token). Used both for a single-asset label and for a batch sheet — a
+    sheet is just this same layout with more assets, wrapping/paginating naturally."""
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Image, Spacer
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=letter,
+                             leftMargin=0.5 * inch, rightMargin=0.5 * inch,
+                             topMargin=0.5 * inch, bottomMargin=0.5 * inch)
+    styles = getSampleStyleSheet()
+    navy = colors.HexColor(_NAVY)
+    title_style = ParagraphStyle("t", parent=styles["Normal"], fontSize=13, fontName="Helvetica-Bold", textColor=navy)
+    sub_style = ParagraphStyle("s", parent=styles["Normal"], fontSize=9, textColor=colors.HexColor("#555555"))
+    tiny_style = ParagraphStyle("tiny", parent=styles["Normal"], fontSize=7, textColor=colors.HexColor("#888888"))
+
+    cells = []
+    for asset in assets:
+        qr_bytes = generate_qr_png_bytes(asset.qr_token or "", box_size=5)
+        qr_img = Image(BytesIO(qr_bytes), width=1.3 * inch, height=1.3 * inch)
+        type_label = ASSET_TYPE_LABELS.get(asset.asset_type, asset.asset_type)
+        info = Paragraph(
+            f"{asset.economic_number}<br/>"
+            f"<font size='8' color='#555555'>{' · '.join(filter(None, [asset.brand, asset.model])) or '—'}</font><br/>"
+            f"<font size='7' color='#888888'>{type_label}</font>",
+            title_style,
+        )
+        cell = Table([[qr_img, info]], colWidths=[1.5 * inch, 2.0 * inch])
+        cell.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor(_GRAY_LINE)),
+            ("LEFTPADDING", (0, 0), (-1, -1), 10),
+            ("TOPPADDING", (0, 0), (-1, -1), 10),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ]))
+        cells.append(cell)
+
+    rows = [cells[i:i + 2] for i in range(0, len(cells), 2)]
+    if rows and len(rows[-1]) == 1:
+        rows[-1].append("")
+    grid = Table(rows, colWidths=[3.6 * inch, 3.6 * inch])
+    grid.setStyle(TableStyle([
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+
+    story = [
+        Paragraph("Etiquetas QR — TruckScan Checklists", title_style),
+        Paragraph("Pegar en la unidad correspondiente. Escanear al iniciar un checklist.", sub_style),
+        Spacer(1, 0.15 * inch),
+        grid,
+    ]
+    doc.build(story)
+    return buf.getvalue()

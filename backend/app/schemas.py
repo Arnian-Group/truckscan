@@ -382,6 +382,17 @@ class ChecklistAssetCreate(BaseModel):
     ctpat_scope: bool = False
 
 
+class ChecklistAssetUpdate(BaseModel):
+    economic_number: Optional[str] = None
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    serial: Optional[str] = None
+    plate: Optional[str] = None
+    energy_type: Optional[str] = None
+    ctpat_scope: Optional[bool] = None
+    is_active: Optional[bool] = None
+
+
 class ChecklistAssetOut(BaseModel):
     id: UUID
     asset_type: str
@@ -490,3 +501,15 @@ class ChecklistVerifyOut(BaseModel):
     valid: bool
     entries_checked: int
     first_break_seq: Optional[int] = None
+
+
+class ChecklistPublicVerifyOut(BaseModel):
+    valid: bool
+    folio: Optional[str] = None
+    template_name: Optional[str] = None
+    template_code: Optional[str] = None
+    classification: Optional[str] = None
+    asset_economic_number: Optional[str] = None
+    submitted_at: Optional[datetime] = None
+    entries_checked: int = 0
+    error: Optional[str] = None

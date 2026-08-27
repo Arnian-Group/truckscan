@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, ClipboardCheck, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, ClipboardCheck, RefreshCw, ChevronLeft, ChevronRight, Wrench } from 'lucide-react'
 import { motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import api from '../lib/api'
+import { isAdmin } from '../lib/auth'
 
 const STATUS_LABELS = {
   draft:     { label: 'BORRADOR',  color: 'text-[#F5A623] bg-[#F5A62322] border-[#F5A62340]' },
@@ -100,9 +101,17 @@ export default function ChecklistList() {
             {f === '' ? 'TODOS' : STATUS_LABELS[f]?.label || f}
           </button>
         ))}
+        {isAdmin() && (
+          <button
+            onClick={() => navigate('/checklists/assets')}
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono text-white/50 border border-white/10 hover:text-white hover:border-white/30 transition-colors min-h-[36px] whitespace-nowrap flex-shrink-0"
+          >
+            <Wrench size={13} /> Unidades
+          </button>
+        )}
         <button
           onClick={() => load(page, statusFilter)}
-          className="ml-auto min-h-[36px] min-w-[36px] flex items-center justify-center text-white/40 hover:text-white flex-shrink-0"
+          className={`min-h-[36px] min-w-[36px] flex items-center justify-center text-white/40 hover:text-white flex-shrink-0 ${isAdmin() ? '' : 'ml-auto'}`}
         >
           <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
         </button>

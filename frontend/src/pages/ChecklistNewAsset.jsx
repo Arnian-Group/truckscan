@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Wrench } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
+import { Wrench, QrCode } from 'lucide-react'
 import Layout from '../components/Layout'
+import QRScanner from '../components/QRScanner'
 import api from '../lib/api'
 import { newIdempotencyKey } from '../lib/idempotency'
 
@@ -30,6 +32,8 @@ export default function ChecklistNewAsset() {
   const [assets, setAssets] = useState([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [scanError, setScanError] = useState('')
   const idemKey = useRef(newIdempotencyKey())
 
   useEffect(() => {
@@ -40,6 +44,21 @@ export default function ChecklistNewAsset() {
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [templateId])
+
+  async function handleScan(token) {
+    setScanError('')
+    try {
+      const { data: asset } = await api.get(`/checklists/assets/by-qr/${encodeURIComponent(token)}`)
+      if (asset.asset_type !== template.asset_type) {
+        setScanError(`Esa unidad es de tipo "${asset.asset_type}", no corresponde a este checklist.`)
+        return
+      }
+      setScanning(false)
+      await createSubmission(asset)
+    } catch (err) {
+      setScanError(err.response?.data?.detail || 'Código QR no reconocido')
+    }
+  }
 
   async function createSubmission(asset) {
     if (creating || !template) return
@@ -62,6 +81,17 @@ export default function ChecklistNewAsset() {
     <Layout title={template?.name || 'Nuevo Checklist'} back="/checklists/new">
       <div className="px-4 py-4 pb-24">
         <p className="text-white/40 text-sm font-mono mb-4">Selecciona la unidad (o continúa sin registrarla)</p>
+
+        <button
+          onClick={() => { setScanError(''); setScanning(true) }}
+          className="w-full flex items-center justify-center gap-2 bg-[#F5A62315] border border-[#F5A62340] text-[#F5A623] font-bold py-3.5 mb-4 min-h-[52px] hover:bg-[#F5A62322] transition-colors"
+        >
+          <QrCode size={18} /> Escanear QR de la unidad
+        </button>
+        {scanError && (
+          <p className="text-red-400 text-xs font-mono border border-red-400/30 bg-red-400/10 px-3 py-2 mb-4">{scanError}</p>
+        )}
+
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-8 h-8 border-2 border-[#F5A623] border-t-transparent rounded-full animate-spin" />
@@ -94,6 +124,12 @@ export default function ChecklistNewAsset() {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {scanning && (
+          <QRScanner onScan={handleScan} onClose={() => setScanning(false)} />
+        )}
+      </AnimatePresence>
     </Layout>
   )
 }

@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request, UploadFile, File, Form
+from fastapi.responses import FileResponse, JSONResponse, Response
 from sqlalchemy.orm import Session, joinedload
 
 from ..database import get_db
@@ -16,16 +16,20 @@ from ..models import (
 )
 from ..auth import get_current_user, require_admin, require_checklist_agent, get_current_user_download
 from ..schemas import (
-    ChecklistAssetCreate, ChecklistAssetOut, ChecklistTemplateOut, ChecklistAssetTypeOut,
+    ChecklistAssetCreate, ChecklistAssetUpdate, ChecklistAssetOut, ChecklistTemplateOut, ChecklistAssetTypeOut,
     ChecklistSubmissionCreate, ChecklistSubmissionUpdate, ChecklistSubmissionOut,
-    ChecklistSubmissionListItem, ChecklistSignatureIn, ChecklistVerifyOut, PaginatedResponse,
+    ChecklistSubmissionListItem, ChecklistSignatureIn, ChecklistVerifyOut, ChecklistPublicVerifyOut,
+    PaginatedResponse,
 )
 from ..audit import log_action
 from ..idempotency import get_cached, save_cached
 from ..config import settings
 from .. import checklist_hash
+from ..qr import generate_qr_png_bytes
 
 router = APIRouter()
+
+ALLOWED_PHOTO_MIME = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 
 SEED_DATA_DIR = Path(__file__).resolve().parent.parent / "checklist_seed_data"
 
@@ -201,6 +205,7 @@ def create_asset(
         plate=body.plate,
         energy_type=body.energy_type,
         ctpat_scope=body.ctpat_scope,
+        qr_token=uuid.uuid4().hex,
         is_active=True,
     )
     db.add(asset)
@@ -209,6 +214,99 @@ def create_asset(
     log_action(db, current_user.id, "checklist_asset_created", "checklist_asset", str(asset.id),
                {"asset_type": body.asset_type, "economic_number": body.economic_number})
     return asset
+
+
+def _get_asset(db: Session, asset_id: uuid.UUID) -> ChecklistAsset:
+    asset = db.query(ChecklistAsset).filter(ChecklistAsset.id == asset_id).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Unidad no encontrada")
+    return asset
+
+
+# NOTE: FastAPI/Starlette match routes in declaration order, not by specificity —
+# unlike a UUID-typed *path converter* (`{asset_id:uuid}`), a bare `{asset_id}`
+# segment matches any string at the routing layer, so a literal path like
+# "/assets/qr-sheet" must be declared BEFORE "/assets/{asset_id}" or the generic
+# route intercepts it first (and its differently-authed dependency then 401s).
+@router.get("/assets/qr-sheet")
+def get_assets_qr_sheet(
+    asset_type: str = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_download),
+):
+    _require_asset_type_access(current_user, asset_type)
+    assets = (
+        db.query(ChecklistAsset)
+        .filter(ChecklistAsset.asset_type == asset_type, ChecklistAsset.is_active == True)
+        .order_by(ChecklistAsset.economic_number)
+        .all()
+    )
+    if not assets:
+        raise HTTPException(status_code=404, detail="No hay unidades activas de este tipo")
+    from ..checklist_pdf import generate_asset_qr_label_pdf
+    pdf_bytes = generate_asset_qr_label_pdf(assets)
+    return Response(content=pdf_bytes, media_type="application/pdf", headers={
+        "Content-Disposition": f'inline; filename="qr_sheet_{asset_type}.pdf"'
+    })
+
+
+@router.get("/assets/{asset_id}", response_model=ChecklistAssetOut)
+def get_asset(
+    asset_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_checklist_agent),
+):
+    asset = _get_asset(db, asset_id)
+    _require_asset_type_access(current_user, asset.asset_type)
+    return asset
+
+
+@router.get("/assets/by-qr/{token}", response_model=ChecklistAssetOut)
+def get_asset_by_qr(
+    token: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_checklist_agent),
+):
+    asset = db.query(ChecklistAsset).filter(
+        ChecklistAsset.qr_token == token, ChecklistAsset.is_active == True
+    ).first()
+    if not asset:
+        raise HTTPException(status_code=404, detail="Código QR no reconocido")
+    _require_asset_type_access(current_user, asset.asset_type)
+    return asset
+
+
+@router.patch("/assets/{asset_id}", response_model=ChecklistAssetOut)
+def update_asset(
+    asset_id: uuid.UUID,
+    body: ChecklistAssetUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    asset = _get_asset(db, asset_id)
+    for field in ("economic_number", "brand", "model", "serial", "plate", "energy_type", "ctpat_scope", "is_active"):
+        value = getattr(body, field)
+        if value is not None:
+            setattr(asset, field, value)
+    db.commit()
+    db.refresh(asset)
+    log_action(db, current_user.id, "checklist_asset_updated", "checklist_asset", str(asset.id))
+    return asset
+
+
+@router.get("/assets/{asset_id}/qr-label")
+def get_asset_qr_label(
+    asset_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_download),
+):
+    asset = _get_asset(db, asset_id)
+    _require_asset_type_access(current_user, asset.asset_type)
+    from ..checklist_pdf import generate_asset_qr_label_pdf
+    pdf_bytes = generate_asset_qr_label_pdf([asset])
+    return Response(content=pdf_bytes, media_type="application/pdf", headers={
+        "Content-Disposition": f'inline; filename="qr_{asset.economic_number}.pdf"'
+    })
 
 
 # ── submissions ──────────────────────────────────────────────────────────────
@@ -406,6 +504,77 @@ def sign_submission(
     return result
 
 
+async def _save_checklist_photo(file: UploadFile, submission_id: uuid.UUID, item_key: str) -> str:
+    ext = "jpg"
+    if file.filename and "." in file.filename:
+        ext = file.filename.rsplit(".", 1)[-1].lower()
+    filename = f"{uuid.uuid4()}.{ext}"
+    dir_path = os.path.join(settings.UPLOADS_DIR, "checklists", str(submission_id), item_key)
+    os.makedirs(dir_path, exist_ok=True)
+    contents = await file.read()
+    with open(os.path.join(dir_path, filename), "wb") as f:
+        f.write(contents)
+    return f"/uploads/checklists/{submission_id}/{item_key}/{filename}"
+
+
+@router.post("/submissions/{submission_id}/photos", response_model=ChecklistSubmissionOut)
+async def add_submission_photos(
+    submission_id: uuid.UUID,
+    item_key: str = Form(...),
+    photos: List[UploadFile] = File(default=[]),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_checklist_agent),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+):
+    cached = get_cached(db, idempotency_key, current_user.id)
+    if cached:
+        status_code, payload = cached
+        return JSONResponse(status_code=status_code, content=payload)
+
+    sub = _get_submission(db, submission_id)
+    _require_asset_type_access(current_user, sub.template.asset_type)
+    _assert_can_edit_submission(current_user, sub)
+    if sub.status != ChecklistSubmissionStatus.draft.value:
+        raise HTTPException(status_code=400, detail="Solo se puede adjuntar fotos a un checklist en borrador")
+
+    valid_keys = {item["key"] for section in sub.template.sections for item in section["items"]}
+    if item_key not in valid_keys:
+        raise HTTPException(status_code=400, detail="Punto de checklist inválido")
+
+    saved_paths = []
+    for f in photos:
+        if f.content_type and f.content_type not in ALLOWED_PHOTO_MIME and not f.content_type.startswith("image/"):
+            continue
+        saved_paths.append(await _save_checklist_photo(f, submission_id, item_key))
+
+    # Build brand-new dicts rather than mutating the ones already referenced by
+    # sub.responses in place — SQLAlchemy's dirty-check on a plain JSON column
+    # compares the old value against the new one, and if the same dict object is
+    # mutated before reassignment, the "old" side reflects the mutation too (dicts
+    # are shared by reference, not snapshotted), so the comparison sees no change
+    # and silently drops the column from the UPDATE.
+    responses = []
+    found = False
+    for r in (sub.responses or []):
+        if r.get("item_key") == item_key:
+            r = {**r, "photos": [*(r.get("photos") or []), *saved_paths]}
+            found = True
+        responses.append(r)
+    if not found:
+        responses.append({"item_key": item_key, "result": None, "observation": "", "photos": saved_paths})
+    sub.responses = responses
+
+    checklist_hash.append_log_entry(
+        db, sub.id, "photo_added", current_user.id,
+        {"item_key": item_key, "photos": saved_paths},
+    )
+    db.commit()
+    result = _get_submission(db, sub.id)
+    save_cached(db, idempotency_key, current_user.id, "add_checklist_photos", 200,
+                ChecklistSubmissionOut.model_validate(result))
+    return result
+
+
 def _next_folio(db: Session, asset_type: str, ref_date) -> str:
     prefix_code = FOLIO_PREFIX.get(asset_type, asset_type[:2].upper())
     year_month = ref_date.strftime("%Y%m")
@@ -487,9 +656,54 @@ def verify_submission(
     return checklist_hash.verify_chain(db, sub.id)
 
 
+@router.get("/verify/{submission_id}", response_model=ChecklistPublicVerifyOut)
+def public_verify_submission(
+    submission_id: uuid.UUID,
+    h: str = Query(..., min_length=8),
+    db: Session = Depends(get_db),
+):
+    """Public, unauthenticated endpoint backing the QR code printed on a submitted
+    checklist's PDF. `h` must match some entry_hash that was genuinely produced by
+    this submission's chain (the PDF embeds the hash of its last event at the time
+    it was generated) — proving the requester holds a real printed/exported copy —
+    and the full chain is then re-verified from genesis, so a chain tampered with
+    at any point (before or after that checkpoint) is still caught."""
+    sub = (
+        db.query(ChecklistSubmission)
+        .options(joinedload(ChecklistSubmission.template), joinedload(ChecklistSubmission.asset))
+        .filter(ChecklistSubmission.id == submission_id, ChecklistSubmission.is_deleted == False)
+        .first()
+    )
+    if not sub:
+        return {"valid": False, "entries_checked": 0, "error": "Checklist no encontrado"}
+
+    token_entry = (
+        db.query(ChecklistLogEntry)
+        .filter(ChecklistLogEntry.submission_id == submission_id, ChecklistLogEntry.entry_hash.like(f"{h}%"))
+        .first()
+    )
+    if not token_entry:
+        return {"valid": False, "entries_checked": 0, "error": "Código de verificación inválido"}
+
+    result = checklist_hash.verify_chain(db, submission_id)
+    snapshot = sub.template_snapshot or {}
+    return {
+        "valid": result["valid"],
+        "entries_checked": result["entries_checked"],
+        "folio": sub.folio,
+        "template_name": snapshot.get("name") or (sub.template.name if sub.template else None),
+        "template_code": snapshot.get("code") or (sub.template.code if sub.template else None),
+        "classification": sub.classification,
+        "asset_economic_number": sub.asset.economic_number if sub.asset else (sub.header_values or {}).get("no_economico") or (sub.header_values or {}).get("unidad_no_economico"),
+        "submitted_at": sub.updated_at,
+        "error": None if result["valid"] else f"Se detectó una alteración en el evento #{result['first_break_seq']}",
+    }
+
+
 @router.get("/submissions/{submission_id}/pdf")
 def get_submission_pdf(
     submission_id: uuid.UUID,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user_download),
 ):
@@ -498,9 +712,13 @@ def get_submission_pdf(
     if sub.status == ChecklistSubmissionStatus.draft.value:
         raise HTTPException(status_code=400, detail="El checklist aún no ha sido enviado")
 
+    scheme = request.headers.get("x-forwarded-proto", "https")
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+    base_url = f"{scheme}://{host}" if host else None
+
     from ..checklist_pdf import generate_checklist_pdf
     try:
-        pdf_path = generate_checklist_pdf(sub)
+        pdf_path = generate_checklist_pdf(sub, base_url=base_url)
     except Exception as e:
         import traceback
         print(f"[PDF] checklist generation error: {e}\n{traceback.format_exc()}")

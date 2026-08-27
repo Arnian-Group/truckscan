@@ -22,6 +22,8 @@ import ChecklistNewAsset from './pages/ChecklistNewAsset'
 import ChecklistFill from './pages/ChecklistFill'
 import ChecklistSign from './pages/ChecklistSign'
 import ChecklistDetail from './pages/ChecklistDetail'
+import ChecklistAssets from './pages/ChecklistAssets'
+import ChecklistVerifyPublic from './pages/ChecklistVerifyPublic'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
 import VehicleRoute from './components/VehicleRoute'
@@ -33,6 +35,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/s/:token" element={<SharedView />} />
+        <Route path="/checklists/verify/:id" element={<ChecklistVerifyPublic />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/trailers" element={<TrailerList />} />
@@ -57,6 +60,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route path="/audit"  element={<AuditLog />} />
             <Route path="/users"  element={<Users />} />
             <Route path="/shares" element={<ShareLinks />} />
+            <Route path="/checklists/assets" element={<ChecklistAssets />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

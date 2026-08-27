@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronDown, ChevronUp, ArrowRight, Check, CloudOff } from 'lucide-react'
+import { ChevronDown, ChevronUp, ArrowRight, Check, CloudOff, Camera } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import ChecklistItemControl, { isFailValue } from '../components/ChecklistItemControl'
 import api, { isQueuedResponse } from '../lib/api'
+import { compressImage } from '../lib/compressImage'
+import { thumbUrl } from '../lib/mediaUrl'
 
 const AUTOSAVE_DEBOUNCE_MS = 900
 
@@ -72,8 +74,10 @@ export default function ChecklistFill() {
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState(null)
   const [queued, setQueued] = useState(false)
+  const [uploadingPhotoFor, setUploadingPhotoFor] = useState(null)
   const saveTimer = useRef(null)
   const dirtyRef = useRef(false)
+  const fileInputRefs = useRef({})
 
   useEffect(() => {
     api.get(`/checklists/submissions/${id}`).then(({ data }) => {
@@ -141,6 +145,34 @@ export default function ChecklistFill() {
   async function handleContinue() {
     await flush(headerValues, responses)
     navigate(`/checklists/${id}/sign`)
+  }
+
+  // Photos upload immediately (own endpoint, own log entry) rather than riding the
+  // autosave PATCH — keeps the debounced text/tri-state autosave payload small and
+  // means a photo is never silently lost if the user navigates away mid-debounce.
+  async function handleAddPhoto(itemKey, fileList) {
+    const files = Array.from(fileList || [])
+    if (!files.length) return
+    setUploadingPhotoFor(itemKey)
+    try {
+      const compressed = await Promise.all(files.map((f) => compressImage(f)))
+      const formData = new FormData()
+      formData.append('item_key', itemKey)
+      for (const f of compressed) formData.append('photos', f)
+      const res = await api.post(`/checklists/submissions/${id}/photos`, formData)
+      if (isQueuedResponse(res)) {
+        alert('Sin conexión: la foto se subirá automáticamente cuando vuelvas a tener señal.')
+      } else {
+        const updated = (res.data.responses || []).find((r) => r.item_key === itemKey)
+        if (updated) {
+          setResponses((prev) => ({ ...prev, [itemKey]: { ...prev[itemKey], ...updated } }))
+        }
+      }
+    } catch (err) {
+      alert(err.response?.data?.detail || 'No se pudo subir la foto')
+    } finally {
+      setUploadingPhotoFor(null)
+    }
   }
 
   if (loading || !submission) {
@@ -222,13 +254,35 @@ export default function ChecklistFill() {
                       onChange={(v) => updateResponse(item.key, { result: v })}
                     />
                     {failed && (
-                      <textarea
-                        value={r.observation || ''}
-                        onChange={(e) => updateResponse(item.key, { observation: e.target.value })}
-                        placeholder="Describe la condición insegura / acción requerida..."
-                        rows={2}
-                        className="w-full bg-[#1e2535] border border-red-400/30 text-white px-3 py-2 text-sm focus:outline-none focus:border-red-400 placeholder-white/20"
-                      />
+                      <>
+                        <textarea
+                          value={r.observation || ''}
+                          onChange={(e) => updateResponse(item.key, { observation: e.target.value })}
+                          placeholder="Describe la condición insegura / acción requerida..."
+                          rows={2}
+                          className="w-full bg-[#1e2535] border border-red-400/30 text-white px-3 py-2 text-sm focus:outline-none focus:border-red-400 placeholder-white/20"
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          {(r.photos || []).map((p, i) => (
+                            <img key={i} src={thumbUrl(p)} alt="" className="w-14 h-14 object-cover border border-white/10" />
+                          ))}
+                          <input
+                            ref={(el) => { fileInputRefs.current[item.key] = el }}
+                            type="file" accept="image/*" capture="environment" multiple className="hidden"
+                            onChange={(e) => { handleAddPhoto(item.key, e.target.files); e.target.value = '' }}
+                          />
+                          <button
+                            type="button"
+                            disabled={uploadingPhotoFor === item.key}
+                            onClick={() => fileInputRefs.current[item.key]?.click()}
+                            className="w-14 h-14 border border-dashed border-white/20 text-white/40 hover:text-white hover:border-white/40 flex items-center justify-center transition-colors disabled:opacity-50"
+                          >
+                            {uploadingPhotoFor === item.key
+                              ? <div className="w-4 h-4 border-2 border-[#F5A623] border-t-transparent rounded-full animate-spin" />
+                              : <Camera size={16} />}
+                          </button>
+                        </div>
+                      </>
                     )}
                   </div>
                 )
