@@ -86,8 +86,12 @@ export default function ChecklistFill() {
       const byKey = {}
       for (const r of data.responses || []) byKey[r.item_key] = r
       setResponses(byKey)
+      // Accordion default: start on the unit-data section, unless it already came
+      // prefilled (e.g. scanned from a registered asset's QR) — then jump straight
+      // to the first checklist section instead of opening a section with nothing left to fill.
       const firstSection = data.template?.sections?.[0]?.key
-      setOpenSections({ __header: true, ...(firstSection ? { [firstSection]: true } : {}) })
+      const headerPrefilled = Object.keys(data.header_values || {}).length > 0
+      setOpenSections(headerPrefilled && firstSection ? { [firstSection]: true } : { __header: true })
     }).catch((err) => {
       alert(err.response?.data?.detail || 'No se pudo cargar el checklist')
       navigate('/checklists')
@@ -137,6 +141,13 @@ export default function ChecklistFill() {
       if (dirtyRef.current) flushRef.current(latestRef.current.headerValues, latestRef.current.responses)
     }
   }, [])
+
+  // Accordion: opening a section closes whichever other one was open, so a long
+  // checklist doesn't turn into a scroll of every section's items stacked at once.
+  // Tapping the already-open section collapses it with nothing left open.
+  function toggleSection(key) {
+    setOpenSections((p) => (p[key] ? {} : { [key]: true }))
+  }
 
   function scheduleSave(hv, resp) {
     dirtyRef.current = true
@@ -229,7 +240,7 @@ export default function ChecklistFill() {
           answered={template.header_fields.filter((f) => headerValues[f.key]).length}
           total={template.header_fields.length}
           open={!!openSections.__header}
-          onToggle={() => setOpenSections((p) => ({ ...p, __header: !p.__header }))}
+          onToggle={() => toggleSection('__header')}
         >
           <div className="grid grid-cols-2 gap-3">
             {template.header_fields.map((f) => (
@@ -250,7 +261,7 @@ export default function ChecklistFill() {
               answered={sectionAnswered}
               total={section.items.length}
               open={!!openSections[section.key]}
-              onToggle={() => setOpenSections((p) => ({ ...p, [section.key]: !p[section.key] }))}
+              onToggle={() => toggleSection(section.key)}
             >
               {section.items.map((item) => {
                 const r = responses[item.key] || {}
