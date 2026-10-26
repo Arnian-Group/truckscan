@@ -13,6 +13,7 @@ const ACTION_LABELS = {
   section_marked_done: 'Sección hecha',
   section_viewed: 'Sección vista',
   user_created: 'Usuario creado',
+  user_password_reset: 'Contraseña restablecida',
 }
 
 export default function AuditLog() {

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, model_validator
+from pydantic import BaseModel, EmailStr, Field, model_validator
 from typing import Optional, List
 from datetime import datetime, date
 from uuid import UUID
@@ -201,6 +201,10 @@ class UserUpdate(BaseModel):
     can_vehicles: Optional[bool] = None
     can_checklists: Optional[bool] = None
     checklist_asset_types: Optional[List[str]] = None  # None = leave unchanged, [] = revoke all
+
+
+class PasswordReset(BaseModel):
+    password: str = Field(min_length=6)
 
 
 class ChecklistUpdate(BaseModel):

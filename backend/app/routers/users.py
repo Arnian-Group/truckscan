@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from ..database import get_db
 from ..models import User, UserRole, ChecklistAssetTypeGrant
 from ..auth import get_current_user, require_admin, hash_password
-from ..schemas import UserCreate, UserOut, UserUpdate
+from ..schemas import UserCreate, UserOut, UserUpdate, PasswordReset
 from ..audit import log_action
 
 router = APIRouter()
@@ -172,3 +172,22 @@ def update_user(
         "checklist_asset_types": user.checklist_asset_types,
     })
     return user
+
+
+@router.post("/{user_id}/password", status_code=204)
+def reset_password(
+    user_id: uuid.UUID,
+    body: PasswordReset,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="No puedes restablecer tu propia contraseña aquí")
+
+    user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    user.hashed_password = hash_password(body.password)
+    db.commit()
+    log_action(db, current_user.id, "user_password_reset", "user", str(user_id), {"email": user.email})

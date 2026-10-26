@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, X, UserCheck, Shield, Loader, Trash2, Car, Truck, Pencil, ClipboardCheck } from 'lucide-react'
+import { Plus, X, UserCheck, Shield, Loader, Trash2, Car, Truck, Pencil, ClipboardCheck, KeyRound } from 'lucide-react'
 import Layout from '../components/Layout'
 import api from '../lib/api'
 import { getUser } from '../lib/auth'
@@ -26,6 +26,7 @@ export default function Users() {
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
+  const [passwordUser, setPasswordUser] = useState(null)
   const [confirmId, setConfirmId] = useState(null)
   const [deleting, setDeleting] = useState(false)
   const me = getUser()
@@ -118,6 +119,15 @@ export default function Users() {
                   )}
                   {!isSelf && (
                     <button
+                      onClick={() => setPasswordUser(user)}
+                      aria-label="Restablecer contraseña"
+                      className="min-w-[40px] min-h-[40px] flex items-center justify-center text-white/30 hover:text-[#F5A623] hover:bg-[#F5A62310] transition-all"
+                    >
+                      <KeyRound size={15} />
+                    </button>
+                  )}
+                  {!isSelf && (
+                    <button
                       onClick={() => handleDelete(user.id)}
                       disabled={deleting}
                       className={`min-w-[40px] min-h-[40px] flex items-center justify-center transition-all active:scale-95 ${
@@ -162,6 +172,9 @@ export default function Users() {
               setEditingUser(null)
             }}
           />
+        )}
+        {passwordUser && (
+          <ResetPasswordModal user={passwordUser} onClose={() => setPasswordUser(null)} />
         )}
       </AnimatePresence>
     </Layout>
@@ -422,6 +435,73 @@ function EditUserModal({ user, assetTypes, onClose, onSaved }) {
         >
           {loading ? 'Guardando...' : 'Guardar cambios'}
         </button>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+function ResetPasswordModal({ user, onClose }) {
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [done, setDone] = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    if (password.length < 6) return setError('Mínimo 6 caracteres')
+    if (password !== confirm) return setError('Las contraseñas no coinciden')
+    setLoading(true)
+    try {
+      await api.post(`/users/${user.id}/password`, { password })
+      setDone(true)
+      setTimeout(onClose, 1200)
+    } catch (err) {
+      setError(apiError(err))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex flex-col justify-end"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <motion.div
+        className="relative bg-[#161b27] border-t border-white/10 rounded-t-2xl p-6"
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+      >
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-bold text-xl">Restablecer contraseña</h2>
+          <button onClick={onClose} className="p-2 text-white/50 min-w-[44px] min-h-[44px] flex items-center justify-center">
+            <X size={20} />
+          </button>
+        </div>
+        <p className="text-white/40 text-sm font-mono mb-5">{user.name} · {user.email}</p>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Field label="Nueva contraseña" type="password" value={password} onChange={setPassword} required />
+          <Field label="Confirmar contraseña" type="password" value={confirm} onChange={setConfirm} required />
+
+          {error && (
+            <p className="text-red-400 text-sm font-mono border border-red-400/30 bg-red-400/10 px-3 py-2">{error}</p>
+          )}
+          {done && (
+            <p className="text-[#22C55E] text-sm font-mono border border-[#22C55E]/30 bg-[#22C55E]/10 px-3 py-2">Contraseña actualizada</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading || done}
+            className="w-full bg-[#F5A623] text-[#0f1117] font-bold text-base py-4 min-h-[56px] hover:bg-[#e8961f] transition-colors disabled:opacity-60"
+          >
+            {loading ? 'Guardando...' : 'Cambiar contraseña'}
+          </button>
+        </form>
       </motion.div>
     </motion.div>
   )
