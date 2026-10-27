@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from ..auth import get_current_user_download_or_none
-from ..models import User, SharedLink
+from ..models import User, SharedLink, VehicleInspection
 from ..database import get_db
 from ..config import settings
 
@@ -47,6 +47,11 @@ def serve_upload(
     current_user: Optional[User] = Depends(get_current_user_download_or_none),
     db: Session = Depends(get_db),
 ):
+    abs_uploads = os.path.realpath(settings.UPLOADS_DIR)
+    abs_file = os.path.realpath(os.path.join(abs_uploads, path))
+    if not abs_file.startswith(abs_uploads + os.sep):
+        raise HTTPException(status_code=403, detail="Access denied")
+
     if not current_user:
         if not share_token:
             raise HTTPException(status_code=401, detail="Not authenticated")
@@ -59,13 +64,14 @@ def serve_upload(
             raise HTTPException(status_code=403, detail="Invalid share token")
         if link.expires_at and link.expires_at < now:
             raise HTTPException(status_code=410, detail="Share link expired")
-        if not path.startswith(f"vehicles/{link.inspection_id}"):
+        insp = db.query(VehicleInspection.is_deleted).filter(VehicleInspection.id == link.inspection_id).first()
+        if not insp or insp.is_deleted:
+            raise HTTPException(status_code=404, detail="File not found")
+        # Check the resolved path, not the raw one: "vehicles/<id>/../<other-id>/x.jpg"
+        # passes a prefix test on the raw string but escapes to another inspection.
+        allowed_dir = os.path.join(abs_uploads, "vehicles", str(link.inspection_id))
+        if not abs_file.startswith(allowed_dir + os.sep):
             raise HTTPException(status_code=403, detail="Access denied")
-
-    abs_uploads = os.path.realpath(settings.UPLOADS_DIR)
-    abs_file = os.path.realpath(os.path.join(abs_uploads, path))
-    if not abs_file.startswith(abs_uploads + os.sep):
-        raise HTTPException(status_code=403, detail="Access denied")
     if not os.path.isfile(abs_file):
         raise HTTPException(status_code=404, detail="File not found")
 

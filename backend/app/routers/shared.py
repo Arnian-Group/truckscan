@@ -167,8 +167,17 @@ def get_shared_inspection(
     link.last_accessed_at = _utcnow()
     db.commit()
 
+    # Public payload: drop internal staff identities (emails, roles, editor list).
+    out = VehicleInspectionOut.model_validate(insp)
+    out.created_by = None
+    out.creator = None
+    out.editor_ids = []
+    for d in out.damages:
+        d.created_by = None
+        d.creator_name = None
+
     return {
-        "inspection": VehicleInspectionOut.model_validate(insp),
+        "inspection": out,
         "share_token": token,
         "expires_at": link.expires_at,
         "label": link.label,
