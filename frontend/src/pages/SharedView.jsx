@@ -274,6 +274,11 @@ export default function SharedView() {
                             {DAMAGE_LABELS[d.damage_type] || d.damage_type}
                           </span>
                         </div>
+                        {d.is_addendum && (
+                          <p className="text-[10px] font-mono text-[#F5A623] mb-1.5">
+                            AGREGADO DESPUÉS DEL CIERRE · {new Date(d.created_at).toLocaleDateString('es-MX')}
+                          </p>
+                        )}
                         {d.description && <p className="text-sm text-white/60 mb-2">{d.description}</p>}
                         {d.photos?.length > 0 && (
                           <div className="grid grid-cols-4 gap-1">

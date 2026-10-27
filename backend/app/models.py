@@ -230,11 +230,17 @@ class VehicleDamage(Base):
     damage_type = Column(String(50), nullable=False)
     description = Column(Text, nullable=True)
     photos = Column(JSON, nullable=False, default=list)
+    # Found after the inspection was completed; append-only, never editable/deletable.
+    is_addendum = Column(Boolean, nullable=False, default=False, server_default="false")
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     inspection = relationship("VehicleInspection", back_populates="damages")
     creator = relationship("User", foreign_keys=[created_by])
+
+    @property
+    def creator_name(self):
+        return self.creator.name if self.creator else None
 
 
 class IdempotencyKey(Base):

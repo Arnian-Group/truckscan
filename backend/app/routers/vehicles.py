@@ -5,6 +5,7 @@ import hashlib
 import json
 from datetime import date, datetime
 from io import BytesIO
+from xml.sax.saxutils import escape as xml_escape
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Header, Request, Query
@@ -66,7 +67,25 @@ HISTORY_ACTION_LABELS = {
     "inspection_editor_added": "Agregó un editor",
     "inspection_editor_removed": "Quitó un editor",
     "vehicle_inspection_deleted": "Eliminó la inspección",
+    "vehicle_addendum_added": "Agregó un hallazgo posterior al cierre",
 }
+
+VIEW_LABELS = {
+    "front": "Frontal", "right": "Derecha", "left": "Izquierda",
+    "rear": "Trasera", "top": "Techo", "interior": "Interior",
+}
+
+
+def _history_action_label(row: AuditLog) -> str:
+    label = HISTORY_ACTION_LABELS.get(row.action, row.action)
+    meta = row.metadata_ or {}
+    if row.action == "vehicle_addendum_added":
+        n = meta.get("photo_count", 0)
+        view = VIEW_LABELS.get(meta.get("view"), meta.get("view") or "")
+        label += f" ({view}, {n} foto{'s' if n != 1 else ''})"
+        if meta.get("description"):
+            label += f": “{meta['description']}”"
+    return label
 
 
 def _serialize_history_value(value):
@@ -485,10 +504,15 @@ def _generate_full_report_pdf(insp: VehicleInspection, base_url: Optional[str] =
                 )
             else:
                 photo_cell = Paragraph(str(len(d.photos)) if d.photos else "—", body_style)
+            desc = xml_escape(d.description or "—")
+            if d.is_addendum:
+                who = xml_escape(d.creator.name) if d.creator else "—"
+                when = d.created_at.strftime("%d/%m/%Y") if d.created_at else ""
+                desc = f"<b>[Agregado después del cierre — {who}, {when}]</b> {desc}"
             dmg_rows.append([
                 d.view.upper(),
                 d.damage_type.title(),
-                Paragraph(d.description or "—", body_style),
+                Paragraph(desc, body_style),
                 photo_cell,
             ])
         dmg_table = Table(dmg_header + dmg_rows,
@@ -993,7 +1017,7 @@ def get_inspection_history(
             timestamp=row.timestamp,
             user=row.user,
             action=row.action,
-            action_label=HISTORY_ACTION_LABELS.get(row.action, row.action),
+            action_label=_history_action_label(row),
         )
         for row in audit_rows
     ]
@@ -1229,6 +1253,62 @@ async def add_damage(
     return damage
 
 
+@router.post("/{inspection_id}/addenda", response_model=VehicleDamageOut, status_code=201)
+async def add_addendum(
+    inspection_id: uuid.UUID,
+    view: str = Form(...),
+    description: str = Form(...),
+    damage_type: str = Form("other"),
+    photos: List[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_vehicle_agent),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+):
+    """Attach photos found after the inspection was closed. Append-only and audited:
+    the original record is untouched and the addendum can't be edited or deleted."""
+    cached = get_cached(db, idempotency_key, current_user.id)
+    if cached:
+        status, payload = cached
+        return JSONResponse(status_code=status, content=payload)
+
+    insp = _get_inspection(db, inspection_id)
+    assert_can_edit_inspection(db, current_user, insp)
+    if insp.status != InspectionStatus.completed:
+        raise HTTPException(status_code=400, detail="Solo aplica a inspecciones completadas; usa la inspección normal")
+    if insp.vehicle_type == VehicleType.mercancias:
+        raise HTTPException(status_code=400, detail="No disponible para recibos de mercancía")
+    description = description.strip()
+    if not description:
+        raise HTTPException(status_code=400, detail="Describe qué se encontró")
+    images = [f for f in photos if not f.content_type or f.content_type in ALLOWED_MIME or f.content_type.startswith("image/")]
+    if not images:
+        raise HTTPException(status_code=400, detail="Agrega al menos una foto")
+
+    damage_id = uuid.uuid4()
+    saved_photos = [await _save_photo(f, inspection_id, damage_id) for f in images]
+    damage = VehicleDamage(
+        id=damage_id,
+        inspection_id=inspection_id,
+        view=view,
+        x_pct=50,
+        y_pct=50,
+        damage_type=damage_type,
+        description=description,
+        photos=saved_photos,
+        is_addendum=True,
+        created_by=current_user.id,
+    )
+    db.add(damage)
+    db.commit()
+    db.refresh(damage)
+    log_action(db, current_user.id, "vehicle_addendum_added", "vehicle_inspection", str(inspection_id),
+               {"damage_id": str(damage_id), "view": view, "type": damage_type,
+                "photo_count": len(saved_photos), "description": description})
+    save_cached(db, idempotency_key, current_user.id, "add_addendum", 201,
+                VehicleDamageOut.model_validate(damage))
+    return damage
+
+
 @router.patch("/{inspection_id}/damages/{damage_id}", response_model=VehicleDamageOut)
 def update_damage(
     inspection_id: uuid.UUID,
@@ -1263,6 +1343,8 @@ def delete_damage(
 ):
     insp = _get_inspection(db, inspection_id)
     assert_can_edit_inspection(db, current_user, insp)
+    if insp.status == InspectionStatus.completed:
+        raise HTTPException(status_code=400, detail="La inspección ya está completada")
     damage = db.query(VehicleDamage).filter(
         VehicleDamage.id == damage_id,
         VehicleDamage.inspection_id == inspection_id,

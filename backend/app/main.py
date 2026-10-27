@@ -166,6 +166,10 @@ async def lifespan(app: FastAPI):
         conn.execute(text(
             "ALTER TABLE vehicle_inspections ADD COLUMN IF NOT EXISTS rol_firma_origen signerrole"
         ))
+        conn.execute(text(
+            "ALTER TABLE vehicle_damages ADD COLUMN IF NOT EXISTS "
+            "is_addendum BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
         conn.commit()
     os.makedirs(settings.UPLOADS_DIR, exist_ok=True)
     os.makedirs(os.path.join(settings.UPLOADS_DIR, "pdfs"), exist_ok=True)

@@ -225,7 +225,9 @@ class VehicleDamageOut(BaseModel):
     damage_type: str
     description: Optional[str]
     photos: List[str]
+    is_addendum: bool = False
     created_by: Optional[UUID]
+    creator_name: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

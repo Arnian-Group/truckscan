@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Loader, FileText, Printer, Download, CheckSquare, Square, ExternalLink, Trash2, Shield, ChevronLeft, ChevronRight, X, ZoomIn, Share2, Users, Lock, Pencil, WifiOff } from 'lucide-react'
+import { Loader, FileText, Printer, Download, CheckSquare, Square, ExternalLink, Trash2, Shield, ChevronLeft, ChevronRight, X, ZoomIn, Share2, Users, Lock, Pencil, WifiOff, Camera } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import Layout from '../components/Layout'
 import ShareModal from '../components/ShareModal'
 import EditorsModal from '../components/EditorsModal'
 import VehicleHistory from '../components/VehicleHistory'
+import AddendumSheet from '../components/AddendumSheet'
 import api, { isQueuedResponse } from '../lib/api'
 import { isAdmin, canEditDoc, canManageEditors } from '../lib/auth'
 import { mediaUrl, thumbUrl } from '../lib/mediaUrl'
@@ -147,6 +148,8 @@ export default function VehicleDetail() {
   const [editorsModal, setEditorsModal] = useState(false)
   const [stale, setStale] = useState(false)
   const [vinSiblings, setVinSiblings] = useState([])
+  const [addendumOpen, setAddendumOpen] = useState(false)
+  const [historyKey, setHistoryKey] = useState(0)
   const admin = isAdmin()
 
   const openPhoto = useCallback((photos, i) => {
@@ -413,6 +416,11 @@ export default function VehicleDetail() {
                           <span className="text-sm font-mono capitalize text-white/80">{d.damage_type}</span>
                           {d.photos?.length > 0 && <span className="text-xs text-white/30 ml-auto">{d.photos.length} foto{d.photos.length !== 1 ? 's' : ''}</span>}
                         </div>
+                        {d.is_addendum && (
+                          <p className="text-[10px] font-mono text-[#F5A623] pl-5 mb-1">
+                            AGREGADO DESPUÉS DEL CIERRE · {d.creator_name || '—'} · {new Date(d.created_at).toLocaleString('es-MX')}
+                          </p>
+                        )}
                         {d.description && <p className="text-xs text-white/50 pl-5">{d.description}</p>}
                         {d.photos?.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2 pl-5">
@@ -565,6 +573,15 @@ export default function VehicleDetail() {
               <ExternalLink size={14} className="text-white/30" />
             </button>
           )}
+          {!isMercancias && !insp.is_deleted && canEdit && insp.status === 'completed' && (
+            <button
+              onClick={() => setAddendumOpen(true)}
+              className="w-full flex items-center gap-3 py-3.5 px-4 border border-[#F5A623]/40 hover:bg-[#F5A623]/10 transition-colors"
+            >
+              <Camera size={18} className="text-[#F5A623]" />
+              <span className="flex-1 text-sm text-left">Agregar fotos de un hallazgo posterior</span>
+            </button>
+          )}
           {!isMercancias && !insp.is_deleted && canEdit &&
             (insp.status === 'intake_complete' || insp.status === 'in_inspection') && (
             <button
@@ -637,7 +654,7 @@ export default function VehicleDetail() {
         <section>
           <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-3">Historial de cambios</h2>
           <div className="bg-[#161b27] border border-white/5 p-4">
-            <VehicleHistory inspectionId={id} />
+            <VehicleHistory key={historyKey} inspectionId={id} />
           </div>
         </section>
       </div>
@@ -648,6 +665,14 @@ export default function VehicleDetail() {
           entryNumber={insp.entry_number}
           onEntryNumberSaved={v => setInsp(prev => ({ ...prev, entry_number: v }))}
           onClose={() => setShareModal(false)}
+        />
+      )}
+
+      {addendumOpen && (
+        <AddendumSheet
+          inspectionId={id}
+          onClose={() => setAddendumOpen(false)}
+          onSaved={() => { setAddendumOpen(false); load(); setHistoryKey(k => k + 1) }}
         />
       )}
 
