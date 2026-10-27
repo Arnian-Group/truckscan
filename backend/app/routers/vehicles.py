@@ -637,7 +637,21 @@ def _generate_full_report_pdf(insp: VehicleInspection, base_url: Optional[str] =
     if insp.notas_finales:
         story.append(Spacer(1, 0.15*inch))
         story.append(Paragraph("Final Notes / Nota Final:", label_style))
-        story.append(Paragraph(insp.notas_finales, body_style))
+        story.append(Paragraph(xml_escape(insp.notas_finales), body_style))
+
+    addenda = sorted((d for d in damages if d.is_addendum), key=lambda d: d.created_at)
+    if addenda:
+        story.append(Spacer(1, 0.1*inch))
+        story.append(Paragraph("Post-completion updates / Actualizaciones posteriores al cierre:", label_style))
+        for d in addenda:
+            who = xml_escape(d.creator.name) if d.creator else "—"
+            when = d.created_at.strftime("%d/%m/%Y") if d.created_at else ""
+            n = len(d.photos or [])
+            story.append(Paragraph(
+                f"<b>{when} — {who}</b> ({d.view.upper()}, {n} foto{'s' if n != 1 else ''}): "
+                f"{xml_escape(d.description or '—')}",
+                body_style,
+            ))
 
     doc.build(story)
     return f"/uploads/pdfs/{insp.id}_report.pdf"

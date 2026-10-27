@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { Truck, CheckSquare, Square, ChevronLeft, ChevronRight, X, AlertTriangle, Clock } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
+import AddendaNotes from '../components/AddendaNotes'
 
 const API = import.meta.env.VITE_API_URL || ''
 
@@ -360,6 +361,7 @@ export default function SharedView() {
             <p className="text-white/60 text-sm bg-[#161b27] border border-white/5 p-3">{insp.notas_finales}</p>
           </section>
         )}
+        <AddendaNotes damages={insp.damages || []} />
 
         <p className="text-center text-xs text-white/15 font-mono pt-4">
           ARNIAN TRUCKSCAN — San Diego ↔ Tijuana

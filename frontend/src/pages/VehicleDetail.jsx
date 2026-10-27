@@ -7,6 +7,7 @@ import ShareModal from '../components/ShareModal'
 import EditorsModal from '../components/EditorsModal'
 import VehicleHistory from '../components/VehicleHistory'
 import AddendumSheet from '../components/AddendumSheet'
+import AddendaNotes from '../components/AddendaNotes'
 import api, { isQueuedResponse } from '../lib/api'
 import { isAdmin, canEditDoc, canManageEditors } from '../lib/auth'
 import { mediaUrl, thumbUrl } from '../lib/mediaUrl'
@@ -642,13 +643,14 @@ export default function VehicleDetail() {
           </section>
         )}
 
-        {/* Final notes */}
+        {/* Final notes + post-completion updates (original note is never rewritten) */}
         {insp.notas_finales && (
           <section>
             <h2 className="text-xs font-mono text-white/40 uppercase tracking-widest mb-2">Nota final</h2>
             <p className="text-white/60 text-sm bg-[#161b27] border border-white/5 p-3">{insp.notas_finales}</p>
           </section>
         )}
+        <AddendaNotes damages={damages} showAuthor />
 
         {/* History / chatter */}
         <section>
